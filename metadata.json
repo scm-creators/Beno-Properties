@@ -1,5 +1,5 @@
 {
-  "name": "Beno Properties",
+  "name": "Beno Properties (SA)",
   "description": "A premium South African real estate platform featuring advanced search, Gauteng property catalogs, dynamic bond calculators, property discovery tools, agent directory, and an admin panel for uploading and managing listings.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

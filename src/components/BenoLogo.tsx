@@ -146,7 +146,7 @@ export default function BenoLogo({
         <LogoMark />
         <div className="flex flex-col select-none">
           <span className={`font-serif font-semibold tracking-[0.2em] uppercase leading-none ${light ? "text-white" : "text-slate-900"}`}>
-            BENO <span className="text-[#C5A85C] font-normal">PROPERTIES</span>
+            BENO <span className="text-[#C5A85C] font-normal">PROPERTIES (SA)</span>
           </span>
           <span className={`font-sans tracking-[0.3em] uppercase mt-1.5 font-medium text-[8px] sm:text-[10px] ${light ? "text-slate-300" : "text-slate-500"}`}>
             Premium Real Estate
@@ -163,7 +163,7 @@ export default function BenoLogo({
       
       {/* BENO PROPERTIES typography */}
       <h1 className={`font-serif font-light tracking-[0.25em] uppercase leading-snug mt-2 ${selectedSize.textTitle} ${light ? "text-white" : "text-slate-900"}`} style={{ fontFamily: "'Playfair Display', 'Didot', 'Georgia', serif" }}>
-        BENO PROPERTIES
+        BENO PROPERTIES (SA)
       </h1>
 
       {/* Accent Separator Line */}

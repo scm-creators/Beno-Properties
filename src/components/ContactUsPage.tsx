@@ -47,10 +47,10 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
       {/* Page Header */}
       <div className="text-center max-w-2xl mx-auto" id="contact-intro">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 uppercase tracking-tight">
-          Connect With Beno Properties
+          Connect With Beno Properties (SA)
         </h2>
         <p className="text-gray-500 text-sm mt-3 leading-relaxed">
-          At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
+          At Beno Properties (SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
         </p>
       </div>
 
@@ -72,8 +72,8 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
                 <div>
                   <h4 className="text-sm font-bold text-gray-900">Physical Address</h4>
                   <p className="text-xs text-gray-500 leading-relaxed mt-1 font-sans">
-                    3840 Hlakula Street, Orlando East,<br />
-                    Soweto, Johannesburg, Gauteng, 1804
+                    No 1 Casino Road, Foundershill,<br />
+                    Modderfontein, Johannesburg, 1609
                   </p>
                 </div>
               </div>
@@ -86,7 +86,8 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
                 <div>
                   <h4 className="text-sm font-bold text-gray-900">Telephone Line</h4>
                   <p className="text-xs text-gray-500 leading-relaxed mt-1 font-mono font-semibold">
-                    Main Office: <a href="tel:+27812652533" className="text-gray-700 hover:text-brand-secondary transition-colors">081 265 2533</a>
+                    Office: <a href="tel:+27101410720" className="text-gray-700 hover:text-brand-secondary transition-colors">010 141 0720</a><br />
+                    Mobile: <a href="tel:+27812652533" className="text-gray-700 hover:text-brand-secondary transition-colors">081 265 2533</a>
                   </p>
                 </div>
               </div>
@@ -99,7 +100,7 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
                 <div>
                   <h4 className="text-sm font-bold text-gray-900">Email Address</h4>
                   <p className="text-xs text-gray-500 leading-relaxed mt-1 font-mono">
-                    <a href="mailto:benopropertiess@gmail.com" className="text-gray-700 hover:text-brand-secondary transition-colors">benopropertiess@gmail.com</a>
+                    <a href="mailto:nolithazwane@benoproperties.com" className="text-gray-700 hover:text-brand-secondary transition-colors">nolithazwane@benoproperties.com</a>
                   </p>
                 </div>
               </div>
@@ -151,7 +152,7 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
           <div className="bg-white border border-gray-200 p-5 rounded-2xl flex items-center gap-3 shadow-sm">
             <ShieldCheck className="h-8 w-8 text-brand-primary flex-shrink-0" />
             <div className="text-xs text-gray-500 font-mono">
-              Beno Properties is fully registered with the <strong className="text-gray-800">Property Practitioners Regulatory Authority (PPRA)</strong> of South Africa.
+              Beno Properties (SA) is fully registered with the <strong className="text-gray-800">Property Practitioners Regulatory Authority (PPRA)</strong> of South Africa.
             </div>
           </div>
         </div>

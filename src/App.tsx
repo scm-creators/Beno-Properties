@@ -679,10 +679,10 @@ export default function App() {
         };
       case "contact":
         return {
-          title: "Contact Beno Properties | Soweto, Johannesburg & Gauteng",
-          description: "Reach out to our partners today. Visit our office at 3840 Hlakula Street, Orlando East, Soweto, Johannesburg. Email us at benopropertiess@gmail.com, or call 081 265 2533.",
-          keywords: "contact beno properties, soweto real estate office, hlakula street soweto",
-          ogTitle: "Connect With Our Gauteng Team | Beno Properties",
+          title: "Contact Beno Properties (SA) | Modderfontein, Johannesburg & Gauteng",
+          description: "Reach out to our partners today. Visit our office at No 1 Casino Road, Foundershill, Modderfontein, Johannesburg. Email us at nolithazwane@benoproperties.com, or call 010 141 0720.",
+          keywords: "contact beno properties, modderfontein real estate office, casino road foundershill",
+          ogTitle: "Connect With Our Gauteng Team | Beno Properties (SA)",
           ogDescription: "Have a listing or viewing inquiry? Get in touch with our team via email or our secure contact forms.",
           ogImage: "https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/contact`,
@@ -700,10 +700,10 @@ export default function App() {
       case "home":
       default:
         return {
-          title: "Beno Properties | Premium South African Real Estate",
-          description: "At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
-          keywords: "beno properties, soweto real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
-          ogTitle: "Beno Properties - Premium Gauteng Real Estate",
+          title: "Beno Properties (SA) | Premium South African Real Estate",
+          description: "At Beno Properties (SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
+          keywords: "beno properties, modderfontein real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
+          ogTitle: "Beno Properties (SA) - Premium Gauteng Real Estate",
           ogDescription: "Delivering exceptional property match-making and transaction advisory services across Gauteng.",
           ogImage: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: window.location.origin,
