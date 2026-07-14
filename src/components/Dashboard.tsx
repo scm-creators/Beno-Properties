@@ -7,7 +7,8 @@ import React, { useState, useRef } from "react";
 import { 
   User, Heart, Bell, Plus, ShieldAlert, Sparkles, Inbox, 
   Trash2, Edit, Save, Check, CheckCircle, Upload, Image as ImageIcon,
-  FolderOpen, UserPlus, FileText, ChevronRight, Filter, Search, Tag, Phone
+  FolderOpen, UserPlus, FileText, ChevronRight, Filter, Search, Tag, Phone,
+  Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { 
   UserProfile, Property, Lead, Agent, EmailAlertSubscription,
@@ -15,6 +16,10 @@ import {
 } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import { GAUTENG_SUBURBS } from "../data";
+import RelationshipAssistant from "./RelationshipAssistant";
+import TenantVetting from "./TenantVetting";
+import BondCalculator from "./BondCalculator";
+import { useReminderSystem } from "../hooks/useReminderSystem";
 
 interface DashboardProps {
   currentUser: UserProfile;
@@ -30,6 +35,8 @@ interface DashboardProps {
   onDeleteAlert: (id: string) => void;
   onAddAlert: (alert: EmailAlertSubscription) => void;
   onSelectPropertyDetails?: (id: string) => void;
+  onDeleteProfile?: (id: string) => void;
+  onOpenAuth?: (prompt?: string) => void;
 }
 
 export default function Dashboard({
@@ -46,6 +53,8 @@ export default function Dashboard({
   onDeleteAlert,
   onAddAlert,
   onSelectPropertyDetails,
+  onDeleteProfile,
+  onOpenAuth,
 }: DashboardProps) {
   // Navigation tabs based on user role
   const getTabs = () => {
@@ -55,16 +64,26 @@ export default function Dashboard({
           { id: "profile", label: "My Profile", icon: User },
           { id: "favorites", label: "Saved Favorites", icon: Heart },
           { id: "alerts", label: "Search Alerts", icon: Bell },
+          { id: "tools", label: "Tools", icon: Wrench },
         ];
       case "agent":
         return [
           { id: "agent-profile", label: "Agent Profile", icon: User },
+          { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
+          { id: "tenant-vetting", label: "Tenant Vetting", icon: FileText },
           { id: "agent-properties", label: "My Listings", icon: FolderOpen },
           { id: "assigned-leads", label: "Assigned Leads", icon: UserPlus },
+        ];
+      case "landlord":
+        return [
+          { id: "landlord-profile", label: "Owner Profile", icon: User },
+          { id: "tenant-vetting", label: "Landlord Portal", icon: FileText },
         ];
       case "admin":
         return [
           { id: "admin-profile", label: "Admin Profile", icon: User },
+          { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
+          { id: "tenant-vetting", label: "Tenant Vetting", icon: FileText },
           { id: "lead-manager", label: "Lead Board", icon: Inbox },
           { id: "all-listings", label: "Portfolio Listings", icon: FolderOpen },
         ];
@@ -76,13 +95,21 @@ export default function Dashboard({
   const tabs = getTabs();
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || "profile");
 
+  // Integrated Client & Property Event Reminder System
+  const reminderSystem = useReminderSystem(currentUser, leads, properties);
+  const [alertsCollapsed, setAlertsCollapsed] = useState(false);
+
   // Edit profile state
   const [profileName, setProfileName] = useState(currentUser.name);
+  const [profileEmail, setProfileEmail] = useState(currentUser.email);
   const [profilePhone, setProfilePhone] = useState(currentUser.phone || "");
   const [profileBio, setProfileBio] = useState(currentUser.bio || "");
   const [profileTitle, setProfileTitle] = useState(currentUser.title || "");
   const [profileImgUrl, setProfileImgUrl] = useState(currentUser.imageUrl || "");
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  const profilePhotoFileRef = useRef<HTMLInputElement>(null);
 
   // Search Alerts State
   const [alertLocation, setAlertLocation] = useState(GAUTENG_SUBURBS[0]);
@@ -112,6 +139,9 @@ export default function Dashboard({
   const coverFileRef = useRef<HTMLInputElement>(null);
   const bulkFileRef = useRef<HTMLInputElement>(null);
 
+  // Active tool sub-tab for tools workspace (Tenant Vetting / Bond Calculator)
+  const [selectedTool, setSelectedTool] = useState<"vetting" | "bond">("vetting");
+
   // Lead management filter & search states
   const [leadSearch, setLeadSearch] = useState("");
   const [leadFilterType, setLeadFilterType] = useState<string>("All");
@@ -133,6 +163,7 @@ export default function Dashboard({
     const updated: UserProfile = {
       ...currentUser,
       name: profileName,
+      email: profileEmail,
       phone: profilePhone || undefined,
       bio: currentUser.role === "agent" ? profileBio : undefined,
       title: currentUser.role === "agent" ? profileTitle : undefined,
@@ -140,7 +171,37 @@ export default function Dashboard({
     };
     onUpdateProfile(updated);
     setProfileSuccess(true);
+    setIsEditingProfile(false);
     setTimeout(() => setProfileSuccess(false), 2000);
+  };
+
+  const handleCancelProfileEdit = () => {
+    setProfileName(currentUser.name);
+    setProfileEmail(currentUser.email);
+    setProfilePhone(currentUser.phone || "");
+    setProfileBio(currentUser.bio || "");
+    setProfileTitle(currentUser.title || "");
+    setProfileImgUrl(currentUser.imageUrl || "");
+    setIsEditingProfile(false);
+  };
+
+  const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImgUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteProfileClick = () => {
+    if (onDeleteProfile) {
+      if (confirm("Are you absolutely sure you want to delete your Agent profile and close your account? This action is permanent and will delete your catalog records. It cannot be undone.")) {
+        onDeleteProfile(currentUser.id);
+      }
+    }
   };
 
   // Saved alerts creation
@@ -304,12 +365,36 @@ export default function Dashboard({
         {/* Left Side: Navigation / User Overview */}
         <div className="w-full lg:w-1/4 flex flex-col gap-6" id="dashboard-nav-card">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
-            <div className="relative w-20 h-20 rounded-full overflow-hidden bg-brand-primary/5 border border-gray-200 mb-3 flex items-center justify-center">
-              {currentUser.imageUrl ? (
+            
+            {/* Clickable/Hoverable Avatar for Photo Upload */}
+            <div 
+              onClick={() => {
+                if (isEditingProfile && (activeTab === "profile" || activeTab === "agent-profile" || activeTab === "admin-profile" || activeTab === "landlord-profile")) {
+                  profilePhotoFileRef.current?.click();
+                }
+              }}
+              title={isEditingProfile ? "Click to upload local photo" : undefined}
+              className={`relative w-20 h-20 rounded-full overflow-hidden bg-brand-primary/5 border border-gray-200 mb-3 flex items-center justify-center transition-all ${
+                isEditingProfile && (activeTab === "profile" || activeTab === "agent-profile" || activeTab === "admin-profile" || activeTab === "landlord-profile")
+                  ? "cursor-pointer ring-4 ring-amber-400 ring-offset-2 hover:opacity-95 group"
+                  : ""
+              }`}
+            >
+              {profileImgUrl ? (
+                <img src={profileImgUrl} alt={currentUser.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              ) : currentUser.imageUrl ? (
                 <img src={currentUser.imageUrl} alt={currentUser.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               ) : (
                 <User className="h-10 w-10 text-brand-primary" />
               )}
+
+              {isEditingProfile && (activeTab === "profile" || activeTab === "agent-profile" || activeTab === "admin-profile" || activeTab === "landlord-profile") && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Upload className="h-5 w-5 text-white" />
+                  <span className="text-[8px] font-bold uppercase mt-1">Upload</span>
+                </div>
+              )}
+              
               <span className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white ${
                 currentUser.role === "admin" ? "bg-red-500" : currentUser.role === "agent" ? "bg-amber-500" : "bg-emerald-500"
               }`} />
@@ -355,12 +440,133 @@ export default function Dashboard({
         {/* Right Side: Tab Workspaces */}
         <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-sm" id="dashboard-workspace">
           
+          {/* Real-time Background Client & Property Event Notifications */}
+          {(currentUser.role === "agent" || currentUser.role === "admin") && reminderSystem.notifications.length > 0 && (
+            <div className="mb-6 bg-amber-50/70 border border-amber-200/60 rounded-2xl p-4 sm:p-5 shadow-sm animate-fadeIn" id="agent-background-notifications">
+              <div className={`flex items-center justify-between ${!alertsCollapsed ? "mb-3.5 pb-2 border-b border-amber-200/30" : ""}`}>
+                <div 
+                  className="flex items-center gap-2 cursor-pointer select-none group"
+                  onClick={() => setAlertsCollapsed(!alertsCollapsed)}
+                  title={alertsCollapsed ? "Expand alerts panel" : "Collapse alerts panel"}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                  <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5 group-hover:text-amber-800 transition-colors">
+                    <Bell className="h-3.5 w-3.5 text-amber-600 animate-bounce" />
+                    Agent Desk: Active Client & Property Alerts ({reminderSystem.notifications.length})
+                  </h4>
+                  {alertsCollapsed ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-amber-700 group-hover:text-amber-900 transition-colors" />
+                  ) : (
+                    <ChevronUp className="h-3.5 w-3.5 text-amber-700 group-hover:text-amber-900 transition-colors" />
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      reminderSystem.resetSystem();
+                    }}
+                    className="text-[10px] font-bold text-amber-700 hover:text-amber-900 uppercase tracking-wider hover:underline cursor-pointer"
+                  >
+                    Clear & Reset Alerts
+                  </button>
+                  <span className="text-amber-300 text-[10px]">|</span>
+                  <button
+                    onClick={() => setAlertsCollapsed(!alertsCollapsed)}
+                    className="text-[10px] font-bold text-amber-700 hover:text-amber-900 uppercase tracking-wider hover:underline cursor-pointer"
+                  >
+                    {alertsCollapsed ? "Expand" : "Collapse"}
+                  </button>
+                </div>
+              </div>
+              {!alertsCollapsed && (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 animate-fadeIn">
+                  {reminderSystem.notifications.map((notif) => (
+                    <div key={notif.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-amber-100 p-3 rounded-xl shadow-xs hover:border-amber-200/80 transition-all">
+                      <div className="flex gap-2.5">
+                        <div className="mt-0.5 bg-amber-100/50 rounded-lg p-1.5 shrink-0 flex items-center justify-center h-8 w-8">
+                          {notif.type === "birthday" ? (
+                            <span className="text-sm">🎂</span>
+                          ) : notif.type === "anniversary" ? (
+                            <span className="text-sm">🏠</span>
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h5 className="text-xs font-black text-gray-900">{notif.title}</h5>
+                            {notif.badgeText && (
+                              <span className="bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                {notif.badgeText}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-600 font-medium mt-0.5 leading-relaxed">{notif.description}</p>
+                          <span className="text-[9px] font-mono text-gray-400 mt-1 block">Triggered: {new Date(notif.createdAt).toLocaleTimeString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0 self-start md:self-center">
+                        <button
+                          onClick={() => {
+                            setActiveTab("relationship-assistant");
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-2xs transition-colors"
+                        >
+                          Action Nudge
+                        </button>
+                        <button
+                          onClick={() => reminderSystem.markComplete(notif.id)}
+                          className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                        >
+                          Mark Done
+                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => reminderSystem.snooze(notif.id, 1)}
+                            className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                            title="Snooze for 1 Day"
+                          >
+                            Snooze 1d
+                          </button>
+                          <button
+                            onClick={() => reminderSystem.snooze(notif.id, 7)}
+                            className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                            title="Snooze for 1 Week"
+                          >
+                            Snooze 7d
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* PROFILE WORKSPACE (All roles have basic profile update) */}
-          {(activeTab === "profile" || activeTab === "agent-profile" || activeTab === "admin-profile") && (
+          {(activeTab === "profile" || activeTab === "agent-profile" || activeTab === "admin-profile" || activeTab === "landlord-profile") && (
             <div className="space-y-6" id="ws-profile">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Account Profile Credentials</h3>
-                <p className="text-gray-500 text-xs mt-0.5">Maintain your contact information and public portal representations.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-150 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Account Profile Credentials</h3>
+                  <p className="text-gray-500 text-xs mt-0.5">Maintain your contact information and public portal representations.</p>
+                </div>
+                
+                {/* Edit Toggle Button */}
+                {!isEditingProfile && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="px-4 py-2 bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold uppercase rounded-lg flex items-center gap-1.5 cursor-pointer transition-all self-start"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    Edit Profile
+                  </button>
+                )}
               </div>
 
               {profileSuccess && (
@@ -370,6 +576,15 @@ export default function Dashboard({
                 </div>
               )}
 
+              {/* Hidden File Input for photo upload */}
+              <input
+                type="file"
+                accept="image/*"
+                ref={profilePhotoFileRef}
+                onChange={handleProfilePhotoChange}
+                className="hidden"
+              />
+
               <form onSubmit={handleSaveProfile} className="space-y-4 max-w-xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -377,18 +592,29 @@ export default function Dashboard({
                     <input
                       type="text"
                       required
+                      disabled={!isEditingProfile}
                       value={profileName}
                       onChange={(e) => setProfileName(e.target.value)}
-                      className="w-full bg-gray-55 border border-gray-200 rounded-xl p-3 text-sm text-gray-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-all"
+                      className={`w-full border rounded-xl p-3 text-sm text-gray-800 transition-all ${
+                        isEditingProfile 
+                          ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                          : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Email Address (Read-only)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Email Address</label>
                     <input
                       type="email"
-                      disabled
-                      value={currentUser.email}
-                      className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-400 focus:outline-none"
+                      required
+                      disabled={!isEditingProfile}
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      className={`w-full border rounded-xl p-3 text-sm text-gray-800 transition-all ${
+                        isEditingProfile 
+                          ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                          : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                 </div>
@@ -397,10 +623,15 @@ export default function Dashboard({
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Phone Number</label>
                   <input
                     type="tel"
+                    disabled={!isEditingProfile}
                     value={profilePhone}
                     onChange={(e) => setProfilePhone(e.target.value)}
                     placeholder="e.g. +27 (0) 82 555 1234"
-                    className="w-full bg-gray-55 border border-gray-200 rounded-xl p-3 text-sm text-gray-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-all"
+                    className={`w-full border rounded-xl p-3 text-sm text-gray-800 transition-all ${
+                      isEditingProfile 
+                        ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                        : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                    }`}
                   />
                 </div>
 
@@ -413,20 +644,52 @@ export default function Dashboard({
                         <label className="block text-xs font-bold text-amber-800 uppercase mb-1.5">Professional Title</label>
                         <input
                           type="text"
+                          disabled={!isEditingProfile}
                           value={profileTitle}
                           onChange={(e) => setProfileTitle(e.target.value)}
                           placeholder="e.g. Area Specialist & Director"
-                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-800 focus:outline-none focus:border-brand-primary"
+                          className={`w-full border rounded-xl p-3 text-xs text-gray-800 transition-all ${
+                            isEditingProfile 
+                              ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                              : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                          }`}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-amber-800 uppercase mb-1.5">Avatar URL</label>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="block text-xs font-bold text-amber-800 uppercase">Avatar URL</label>
+                          {isEditingProfile && (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => profilePhotoFileRef.current?.click()}
+                                className="text-[10px] font-bold text-brand-primary hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Upload className="h-3 w-3" /> Upload Photo
+                              </button>
+                              {profileImgUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setProfileImgUrl("")}
+                                  className="text-[10px] font-bold text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Trash2 className="h-3 w-3" /> Clear
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <input
                           type="url"
+                          disabled={!isEditingProfile}
                           value={profileImgUrl}
                           onChange={(e) => setProfileImgUrl(e.target.value)}
                           placeholder="https://..."
-                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-800 focus:outline-none focus:border-brand-primary"
+                          className={`w-full border rounded-xl p-3 text-xs text-gray-800 transition-all ${
+                            isEditingProfile 
+                              ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                              : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                          }`}
                         />
                       </div>
                     </div>
@@ -435,22 +698,57 @@ export default function Dashboard({
                       <label className="block text-xs font-bold text-amber-800 uppercase mb-1.5">Biography & Mission</label>
                       <textarea
                         rows={4}
+                        disabled={!isEditingProfile}
                         value={profileBio}
                         onChange={(e) => setProfileBio(e.target.value)}
                         placeholder="Tell clients about your expertise, focus neighborhoods, and commitment..."
-                        className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-800 focus:outline-none focus:border-brand-primary leading-relaxed"
+                        className={`w-full border rounded-xl p-3 text-xs text-gray-800 leading-relaxed transition-all ${
+                          isEditingProfile 
+                            ? "bg-white border-gray-200 focus:outline-none focus:border-brand-primary" 
+                            : "bg-gray-100 border-gray-150 text-gray-500 cursor-not-allowed"
+                        }`}
                       />
                     </div>
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-brand-primary hover:bg-brand-hover text-white text-xs font-extrabold uppercase tracking-wider rounded-full shadow-sm cursor-pointer transition-all flex items-center gap-1.5"
-                >
-                  <Save className="h-4 w-4" />
-                  Save Changes
-                </button>
+                {/* Form Actions */}
+                <div className="pt-4 border-t border-gray-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {isEditingProfile ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-brand-primary hover:bg-brand-hover text-white text-xs font-extrabold uppercase tracking-wider rounded-full shadow-sm cursor-pointer transition-all flex items-center gap-1.5"
+                      >
+                        <Save className="h-4 w-4" />
+                        Save Changes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelProfileEdit}
+                        className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold uppercase tracking-wider rounded-full cursor-pointer transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-xs italic">
+                      Click "Edit Profile" at the top right to make changes.
+                    </div>
+                  )}
+
+                  {/* Delete Account Button */}
+                  {onDeleteProfile && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteProfileClick}
+                      className="px-5 py-2.5 text-xs font-bold text-red-600 hover:text-white border border-red-200 hover:bg-red-600 rounded-full cursor-pointer transition-all flex items-center gap-1.5 self-start"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Account
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
           )}
@@ -1224,6 +1522,82 @@ export default function Dashboard({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "relationship-assistant" && (
+            <RelationshipAssistant
+              leads={leads}
+              onUpdateLead={onUpdateLead}
+              properties={properties}
+              onUpdateProperty={onUpdateProperty}
+              agents={agents}
+              currentUser={currentUser}
+              reminderSystem={reminderSystem}
+            />
+          )}
+
+          {activeTab === "tenant-vetting" && (
+            <TenantVetting
+              properties={properties}
+              onUpdateProperty={onUpdateProperty}
+              currentUser={currentUser}
+              isClientPortal={false}
+              onOpenAuth={onOpenAuth}
+            />
+          )}
+
+          {activeTab === "tools" && (
+            <div className="space-y-6" id="ws-tools">
+              <div className="border-b border-gray-150 pb-4">
+                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <Wrench className="h-5 w-5 text-brand-secondary" />
+                  Client Planning Tools
+                </h3>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Access specialized tools designed to streamline your rental and purchasing journey.
+                </p>
+              </div>
+
+              {/* Tools selector tabs */}
+              <div className="flex border-b border-gray-200 gap-2 mb-6" id="tools-selector-tabs">
+                <button
+                  onClick={() => setSelectedTool("vetting")}
+                  className={`px-4 py-2.5 text-xs font-bold uppercase border-b-2 transition-all cursor-pointer ${
+                    selectedTool === "vetting"
+                      ? "border-brand-primary text-brand-primary font-extrabold"
+                      : "border-transparent text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  Tenant Vetting & Screening
+                </button>
+                <button
+                  onClick={() => setSelectedTool("bond")}
+                  className={`px-4 py-2.5 text-xs font-bold uppercase border-b-2 transition-all cursor-pointer ${
+                    selectedTool === "bond"
+                      ? "border-brand-primary text-brand-primary font-extrabold"
+                      : "border-transparent text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  Bond & Repayment Calculator
+                </button>
+              </div>
+
+              <div className="pt-2">
+                {selectedTool === "vetting" ? (
+                  <TenantVetting
+                    properties={properties}
+                    onUpdateProperty={onUpdateProperty}
+                    currentUser={currentUser}
+                    isClientPortal={true}
+                    onOpenAuth={onOpenAuth}
+                  />
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-inner animate-fadeIn">
+                    <BondCalculator />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

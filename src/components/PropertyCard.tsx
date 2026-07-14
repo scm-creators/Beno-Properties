@@ -4,13 +4,15 @@
  */
 
 import React from "react";
-import { BedDouble, Bath, Car, Maximize2, Tag, ArrowUpRight } from "lucide-react";
+import { BedDouble, Bath, Car, Maximize2, Tag, ArrowUpRight, Heart } from "lucide-react";
 import { Property } from "../types";
 
 interface PropertyCardProps {
   property: Property;
   onViewDetails: (property: Property) => void;
   key?: string | number;
+  isFavorited?: boolean;
+  onToggleFavorite?: (propertyId: string) => void;
 }
 
 export const formatPriceZAR = (price: number, status: string) => {
@@ -23,7 +25,12 @@ export const formatPriceZAR = (price: number, status: string) => {
   return status === "To Rent" ? `${formatted} / month` : formatted;
 };
 
-export default function PropertyCard({ property, onViewDetails }: PropertyCardProps) {
+export default function PropertyCard({
+  property,
+  onViewDetails,
+  isFavorited = false,
+  onToggleFavorite,
+}: PropertyCardProps) {
   return (
     <div
       id={`property-card-${property.id}`}
@@ -63,6 +70,25 @@ export default function PropertyCard({ property, onViewDetails }: PropertyCardPr
         <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded text-[10px] font-mono text-brand-primary font-bold border border-gray-200 shadow-sm">
           REF: {property.id}
         </div>
+
+        {/* Heart/Favorite Button */}
+        {onToggleFavorite && (
+          <button
+            id={`favorite-btn-${property.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(property.id);
+            }}
+            className={`absolute bottom-3 right-3 z-10 p-2 rounded-full backdrop-blur-sm shadow-md border cursor-pointer transition-all duration-300 ${
+              isFavorited
+                ? "bg-red-50 text-red-500 border-red-200 hover:bg-red-100 scale-105"
+                : "bg-white/90 text-gray-400 border-gray-200 hover:text-red-500 hover:bg-white hover:scale-105"
+            }`}
+            title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={`h-4 w-4 ${isFavorited ? "fill-current text-red-500" : ""}`} />
+          </button>
+        )}
       </div>
 
       {/* Property Content */}

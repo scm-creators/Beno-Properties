@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video } from "lucide-react";
+import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video, Link, MessageCircle } from "lucide-react";
 import { Property, Agent, ContactMessage } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import BondCalculator from "./BondCalculator";
@@ -25,6 +25,34 @@ export default function PropertyDetailsModal({
   onSubmitVirtualTourRequest,
 }: PropertyDetailsModalProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "calculator">("overview");
+
+  // Copy Link State
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}${window.location.pathname}?property=${property.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {}
+      document.body.removeChild(textArea);
+    });
+  };
+
+  const handleWhatsAppShare = () => {
+    const url = `${window.location.origin}${window.location.pathname}?property=${property.id}`;
+    const text = `Check out this exquisite property on Beno Properties: *${property.title}* in ${property.location}, ${property.city}!\n\nView details here: ${url}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+  };
 
   // Form States
   const [name, setName] = useState("");
@@ -80,14 +108,47 @@ export default function PropertyDetailsModal({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/30" />
 
-          {/* Close button */}
-          <button
-            id="close-details-btn"
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-white/80 hover:bg-brand-primary hover:text-white text-gray-700 rounded-full transition-all cursor-pointer border border-gray-200 shadow-sm"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {/* Top action buttons */}
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <button
+              id="whatsapp-share-btn"
+              onClick={handleWhatsAppShare}
+              className="px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600"
+              title="Share to WhatsApp"
+            >
+              <MessageCircle className="h-3.5 w-3.5 fill-current text-white" />
+              <span>Share to WhatsApp</span>
+            </button>
+            <button
+              id="copy-link-btn"
+              onClick={handleCopyLink}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 ${
+                copied 
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                  : "bg-white/95 hover:bg-brand-primary hover:text-white text-gray-700 border-gray-200"
+              }`}
+              title="Copy link to clipboard"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-100" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Link className="h-3.5 w-3.5" />
+                  <span>Copy Link</span>
+                </>
+              )}
+            </button>
+            <button
+              id="close-details-btn"
+              onClick={onClose}
+              className="p-2 bg-white/80 hover:bg-brand-primary hover:text-white text-gray-700 rounded-full transition-all cursor-pointer border border-gray-200 shadow-sm"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
           {/* Title & Price overlay */}
           <div className="absolute bottom-4 left-6 right-6">
@@ -191,22 +252,24 @@ export default function PropertyDetailsModal({
               {/* Right Column: Agent & Inquiry */}
               <div className="lg:col-span-5 space-y-6">
                 {/* Agent Card */}
-                <div className="bg-gray-50 border border-gray-250 p-5 rounded-2xl flex items-center gap-4">
+                <div className="bg-gray-50 border border-gray-250 p-5 rounded-2xl flex items-center gap-4 min-w-0 w-full overflow-hidden">
                   <img
                     src={agent.imageUrl}
                     alt={agent.name}
                     referrerPolicy="no-referrer"
-                    className="w-16 h-16 rounded-xl object-cover border border-gray-200"
+                    className="w-16 h-16 rounded-xl object-cover border border-gray-200 flex-shrink-0"
                   />
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900">{agent.name}</h4>
-                    <p className="text-xs text-brand-secondary font-bold">{agent.title}</p>
-                    <div className="text-xs text-gray-500 mt-2 space-y-0.5">
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-gray-400" /> {agent.phone}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-gray-900 truncate">{agent.name}</h4>
+                    <p className="text-xs text-brand-secondary font-bold truncate">{agent.title}</p>
+                    <div className="text-xs text-gray-500 mt-2 space-y-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{agent.phone}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3 text-gray-400" /> {agent.email}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="break-all whitespace-pre-wrap select-all">{agent.email}</span>
                       </div>
                     </div>
                   </div>

@@ -34,7 +34,7 @@ export default function Footer({ onBlogClick, onPopularAreaClick, onSitemapClick
               <BenoLogo variant="horizontal" size="sm" light={true} />
             </div>
             <p className="text-gray-400 text-xs leading-relaxed">
-              At Beno Properties (SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
+              At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
             </p>
             <div className="space-y-2 text-xs font-mono text-gray-400 pt-2">
               <div className="flex items-start gap-2">
@@ -43,15 +43,14 @@ export default function Footer({ onBlogClick, onPopularAreaClick, onSitemapClick
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                <a href="tel:+27101410720" className="hover:text-brand-secondary transition-colors">010 141 0720</a>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                <a href="tel:+27812652533" className="hover:text-brand-secondary transition-colors">081 265 2533</a>
+                <div className="flex flex-col">
+                  <span>Office: <a href="tel:+27101410720" className="hover:text-brand-secondary transition-colors">010 141 0720</a></span>
+                  <span>Mobile: <a href="tel:+27812652533" className="hover:text-brand-secondary transition-colors">081 265 2533</a></span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                <a href="mailto:nolithazwane@benoproperties.com" className="hover:text-brand-secondary transition-colors">nolithazwane@benoproperties.com</a>
+                <a href="mailto:nolithazwane@benopropertiessa.com" className="hover:text-brand-secondary transition-colors">nolithazwane@benopropertiessa.com</a>
               </div>
               <div className="text-[10px] text-gray-500 pt-2 border-t border-gray-800 mt-2 space-y-1">
                 <div>Website: <span className="italic text-gray-400">Coming soon</span></div>
@@ -124,7 +123,7 @@ export default function Footer({ onBlogClick, onPopularAreaClick, onSitemapClick
 
         {/* Bottom copyright & certification */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between text-[11px] text-gray-500 gap-4" id="footer-bottom">
-          <p>© 2026 Beno Properties (SA) (Pty) Ltd. All Rights Reserved. ZAR / South African Local Market.</p>
+          <p>© 2026 Beno Properties(SA). All Rights Reserved. ZAR / South African Local Market.</p>
           <div className="flex flex-wrap items-center gap-4 font-mono">
             {onSitemapClick && (
               <button

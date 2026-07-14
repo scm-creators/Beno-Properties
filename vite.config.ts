@@ -3,11 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-const isGitHubPages = process.env.GITHUB_ACTIONS === 'true' || process.env.GITHUB_PAGES === 'true';
-
 export default defineConfig(() => {
   return {
-    base: isGitHubPages ? '/Beno-Properties/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

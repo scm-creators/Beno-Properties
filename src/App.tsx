@@ -33,7 +33,7 @@ import BenoLogo from "./components/BenoLogo";
 import Helmet from "./components/Helmet";
 import Sitemap from "./components/Sitemap";
 import { AnimatePresence } from "motion/react";
-import { Building2, Landmark, RefreshCw, Star, SlidersHorizontal, AlertCircle, HelpCircle, ShieldCheck } from "lucide-react";
+import { Building2, Landmark, RefreshCw, Star, SlidersHorizontal, AlertCircle, HelpCircle, ShieldCheck, History } from "lucide-react";
 
 const INITIAL_USERS: UserProfile[] = [
   {
@@ -102,7 +102,9 @@ const INITIAL_LEADS: Lead[] = [
     assignedAgentId: "BENO-AGT-2",
     notes: "Client prefers estate homes with backup solar generators. Arranged site visits.",
     details: "Searching for 3+ Bed Family Townhouse in Midrand under R2.5M.",
-    createdAt: "2026-06-26T11:00:00-07:00"
+    createdAt: "2026-06-26T11:00:00-07:00",
+    date_of_birth: "1988-03-12",
+    client_since_date: "2025-07-21" // Anniversary in 7 days!
   },
   {
     id: "LEAD-102",
@@ -116,7 +118,9 @@ const INITIAL_LEADS: Lead[] = [
     notes: "Inquired on reference BENO-1024. Needs clarification on staff flatlet sizing.",
     propertyRefId: "BENO-1024",
     details: "Is the price negotiable? I would like to schedule an exclusive viewing for next Saturday.",
-    createdAt: "2026-07-06T09:15:00-07:00"
+    createdAt: "2026-07-06T09:15:00-07:00",
+    date_of_birth: "1990-07-19", // Birthday in 5 days!
+    client_since_date: "2026-02-14"
   },
   {
     id: "LEAD-103",
@@ -130,6 +134,7 @@ const INITIAL_LEADS: Lead[] = [
     notes: "Founder David scheduled a property inspection for valuation purposes.",
     details: "Wants to list custom 4-bed mansion in Waterkloof. Expected valuation R12.5M.",
     createdAt: "2026-07-05T14:30:00-07:00"
+    // Missing dates to test graceful absence handling!
   },
   {
     id: "LEAD-104",
@@ -142,7 +147,9 @@ const INITIAL_LEADS: Lead[] = [
     assignedAgentId: "Unassigned",
     notes: "Wants information about corporate rentals vetting guidelines.",
     details: "I am relocating from Nigeria to Sandton for an executive role. Please send rental requirements.",
-    createdAt: "2026-07-07T08:00:00-07:00"
+    createdAt: "2026-07-07T08:00:00-07:00",
+    date_of_birth: "1995-07-14", // Birthday today!
+    client_since_date: "2026-07-07"
   }
 ];
 
@@ -156,6 +163,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [existingUsers, setExistingUsers] = useState<UserProfile[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalPrompt, setAuthModalPrompt] = useState<string>("");
   const [leads, setLeads] = useState<Lead[]>([]);
 
   // Core Data Lists (with LocalStorage persistence)
@@ -168,6 +176,31 @@ export default function App() {
 
   // Selected property for detailed modal
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+
+  // Recently Viewed state
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("beno_recently_viewed");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (selectedProperty) {
+      setRecentlyViewedIds((prev) => {
+        const filtered = prev.filter((id) => id !== selectedProperty.id);
+        const updated = [selectedProperty.id, ...filtered].slice(0, 10); // Keep last 10
+        localStorage.setItem("beno_recently_viewed", JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [selectedProperty]);
+
+  const recentlyViewedProperties = recentlyViewedIds
+    .map((id) => properties.find((p) => p.id === id))
+    .filter((p): p is Property => !!p);
 
   // Global search filters
   const [filters, setFilters] = useState<SearchFilters>({
@@ -200,6 +233,16 @@ export default function App() {
     if (storedUsers) {
       try {
         finalUsers = JSON.parse(storedUsers);
+        // Sanitize any existing duplicates in local storage users
+        const uniqueUsers: UserProfile[] = [];
+        const seenUserIds = new Set<string>();
+        finalUsers.forEach(u => {
+          if (!seenUserIds.has(u.id)) {
+            seenUserIds.add(u.id);
+            uniqueUsers.push(u);
+          }
+        });
+        finalUsers = uniqueUsers;
         setExistingUsers(finalUsers);
       } catch (e) {
         setExistingUsers(INITIAL_USERS);
@@ -210,8 +253,16 @@ export default function App() {
     }
 
     // Combine INITIAL_AGENTS with registered users of role "agent"
-    const computedAgents = [...INITIAL_AGENTS];
-    finalUsers.filter(u => u.role === "agent").forEach(au => {
+    let deletedAgentIds: string[] = [];
+    try {
+      const storedDeleted = localStorage.getItem("beno_deleted_agents");
+      if (storedDeleted) {
+        deletedAgentIds = JSON.parse(storedDeleted);
+      }
+    } catch (e) {}
+
+    const computedAgents = INITIAL_AGENTS.filter(a => !deletedAgentIds.includes(a.id));
+    finalUsers.filter(u => u.role === "agent" && !deletedAgentIds.includes(u.id)).forEach(au => {
       if (!computedAgents.some(a => a.id === au.id)) {
         computedAgents.push({
           id: au.id,
@@ -225,7 +276,17 @@ export default function App() {
         });
       }
     });
-    setAgents(computedAgents);
+
+    // Strictly ensure all agents have completely unique IDs before setting state
+    const uniqueComputedAgents: Agent[] = [];
+    const seenAgentIds = new Set<string>();
+    computedAgents.forEach(a => {
+      if (!seenAgentIds.has(a.id)) {
+        seenAgentIds.add(a.id);
+        uniqueComputedAgents.push(a);
+      }
+    });
+    setAgents(uniqueComputedAgents);
 
     // 3. Current User Session
     const storedCurrentUser = localStorage.getItem("beno_current_user");
@@ -278,6 +339,20 @@ export default function App() {
       } catch (e) {}
     }
   }, []);
+
+  // Support loading property on mount or url changes if specified in URL query
+  useEffect(() => {
+    if (properties && properties.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const propId = params.get("property") || params.get("refId");
+      if (propId) {
+        const found = properties.find((p) => p.id === propId);
+        if (found) {
+          setSelectedProperty(found);
+        }
+      }
+    }
+  }, [properties]);
 
   // Save properties to local storage whenever they change
   const updateAndStoreProperties = (updatedProps: Property[]) => {
@@ -546,7 +621,12 @@ export default function App() {
         specialization: newUser.specialization || ["Residential Sales"],
         bio: newUser.bio || "Registered Beno real estate professional."
       };
-      setAgents([...agents, newAgent]);
+      setAgents((prev) => {
+        if (prev.some((a) => a.id === newAgent.id)) {
+          return prev.map((a) => a.id === newAgent.id ? newAgent : a);
+        }
+        return [...prev, newAgent];
+      });
     }
   };
 
@@ -599,6 +679,55 @@ export default function App() {
       });
       setAgents(updatedAgents);
     }
+  };
+
+  const handleDeleteProfile = (id: string) => {
+    // 1. Add ID to deleted agents in localStorage
+    let deletedAgentIds: string[] = [];
+    try {
+      const storedDeleted = localStorage.getItem("beno_deleted_agents");
+      if (storedDeleted) {
+        deletedAgentIds = JSON.parse(storedDeleted);
+      }
+    } catch (e) {}
+
+    if (!deletedAgentIds.includes(id)) {
+      deletedAgentIds.push(id);
+      localStorage.setItem("beno_deleted_agents", JSON.stringify(deletedAgentIds));
+    }
+
+    // 2. Remove from existing users
+    const updatedUsers = existingUsers.filter(u => u.id !== id);
+    setExistingUsers(updatedUsers);
+    localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+
+    // 3. Update agents state
+    setAgents(prev => prev.filter(a => a.id !== id));
+
+    // 4. If deleted user is current user, log them out
+    if (currentUser && currentUser.id === id) {
+      handleLogout();
+    }
+  };
+
+  const handleToggleFavorite = (propertyId: string) => {
+    if (!currentUser) {
+      setAuthModalPrompt("Sign In / Register to Save Property");
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    const currentFavorites = currentUser.favorites || [];
+    const isFav = currentFavorites.includes(propertyId);
+    const updatedFavorites = isFav
+      ? currentFavorites.filter(id => id !== propertyId)
+      : [...currentFavorites, propertyId];
+
+    const updatedProfile = {
+      ...currentUser,
+      favorites: updatedFavorites
+    };
+    handleUpdateProfile(updatedProfile);
   };
 
   const handleUpdateLead = (updatedLead: Lead) => {
@@ -659,40 +788,40 @@ export default function App() {
         };
       case "tools":
         return {
-          title: "Bond Calculator & Transfer Duty Guide | Beno Properties",
+          title: "Bond Calculator & Transfer Duty Guide | Beno Properties(SA)",
           description: "Calculate your South African home loan repayments, monthly interest premium targets, and learn about SARS transfer duty tax brackets for your property purchase.",
           keywords: "home loan calculator south africa, bond registration fees, transfer duty calculator sars",
-          ogTitle: "Home Loan Bond Repayment Simulator | Beno Properties",
+          ogTitle: "Home Loan Bond Repayment Simulator | Beno Properties(SA)",
           ogDescription: "Compute your estimated monthly mortgage bond repayments and explore SA buying cost guidelines.",
           ogImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/tools`,
         };
       case "agents":
         return {
-          title: "Our Expert Real Estate Partners | Beno Properties",
-          description: "Meet our certified real estate professional agents. Based in Orlando East, Soweto and Greater Johannesburg, offering premium property match-making and transaction advisory.",
-          keywords: "soweto real estate agents, gauteng property brokers, david beno, sipho khumalo",
-          ogTitle: "Professional Real Estate Team | Beno Properties",
+          title: "Our Expert Real Estate Partners | Beno Properties(SA)",
+          description: "Meet our certified real estate professional agents. Based in Johannesburg, offering premium property match-making and transaction advisory.",
+          keywords: "johannesburg real estate agents, gauteng property brokers, david beno, sipho khumalo",
+          ogTitle: "Professional Real Estate Team | Beno Properties(SA)",
           ogDescription: "Connect directly with our registered, expert Gauteng real estate specialists for luxury sales and rentals.",
           ogImage: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/agents`,
         };
       case "contact":
         return {
-          title: "Contact Beno Properties (SA) | Modderfontein, Johannesburg & Gauteng",
-          description: "Reach out to our partners today. Visit our office at No 1 Casino Road, Foundershill, Modderfontein, Johannesburg. Email us at nolithazwane@benoproperties.com, or call 010 141 0720.",
-          keywords: "contact beno properties, modderfontein real estate office, casino road foundershill",
-          ogTitle: "Connect With Our Gauteng Team | Beno Properties (SA)",
+          title: "Contact Beno Properties(SA) | Modderfontein, Johannesburg",
+          description: "Reach out to our partners today. Visit our office at No 1 Casino Road, Foundershill, Modderfontein, Johannesburg. Email us at nolithazwane@benopropertiessa.com, or call 010 141 0720 / 081 265 2533.",
+          keywords: "contact beno properties sa, modderfontein real estate office, casino road modderfontein",
+          ogTitle: "Connect With Our Gauteng Team | Beno Properties(SA)",
           ogDescription: "Have a listing or viewing inquiry? Get in touch with our team via email or our secure contact forms.",
           ogImage: "https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/contact`,
         };
       case "portal":
         return {
-          title: "Partner Workspace & Portal | Beno Properties",
-          description: "Secure workspace dashboard for Beno Properties partners. Access active client profiles, save real-time search alerts, and manage luxury listings.",
+          title: "Partner Workspace & Portal | Beno Properties(SA)",
+          description: "Secure workspace dashboard for Beno Properties(SA) partners. Access active client profiles, save real-time search alerts, and manage luxury listings.",
           keywords: "agent login, partner portal, real estate CRM soweto, real estate dashboard",
-          ogTitle: "Exclusive Partner Portal | Beno Properties",
+          ogTitle: "Exclusive Partner Portal | Beno Properties(SA)",
           ogDescription: "Collaborate and manage real estate clients, listings, and leads in our secure cloud workspace.",
           ogImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/portal`,
@@ -700,10 +829,10 @@ export default function App() {
       case "home":
       default:
         return {
-          title: "Beno Properties (SA) | Premium South African Real Estate",
-          description: "At Beno Properties (SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
-          keywords: "beno properties, modderfontein real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
-          ogTitle: "Beno Properties (SA) - Premium Gauteng Real Estate",
+          title: "Beno Properties(SA) | Premium South African Real Estate",
+          description: "At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
+          keywords: "beno properties sa, modderfontein real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
+          ogTitle: "Beno Properties(SA) - Premium Gauteng Real Estate",
           ogDescription: "Delivering exceptional property match-making and transaction advisory services across Gauteng.",
           ogImage: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: window.location.origin,
@@ -724,7 +853,10 @@ export default function App() {
         isAdmin={isAdmin}
         setIsAdmin={setIsAdmin}
         currentUser={currentUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => {
+          setAuthModalPrompt("");
+          setIsAuthModalOpen(true);
+        }}
         onLogout={handleLogout}
       />
 
@@ -750,6 +882,11 @@ export default function App() {
                 const p = properties.find(prop => prop.id === refId);
                 if (p) setSelectedProperty(p);
               }}
+              onDeleteProfile={handleDeleteProfile}
+              onOpenAuth={(promptText) => {
+                setAuthModalPrompt(promptText || "");
+                setIsAuthModalOpen(true);
+              }}
             />
           </div>
         ) : currentTab === "portal" && !currentUser ? (
@@ -765,7 +902,10 @@ export default function App() {
                 </p>
               </div>
               <button
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={() => {
+                  setAuthModalPrompt("");
+                  setIsAuthModalOpen(true);
+                }}
                 className="w-full py-3.5 bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer"
               >
                 Access Partner Workspace
@@ -783,7 +923,7 @@ export default function App() {
                     Administrative Sandbox Workspace
                   </h3>
                   <p className="text-slate-400 text-xs">
-                    You are currently managing Beno Properties records. All edits sync immediately.
+                    You are currently managing Beno Properties(SA) records. All edits sync immediately.
                   </p>
                 </div>
               </div>
@@ -856,7 +996,7 @@ export default function App() {
 
                   {/* Subtitle */}
                   <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-sans">
-                    {currentTab === "home" && "At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence."}
+                    {currentTab === "home" && "At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence."}
                     {currentTab === "sale" && "Browse our curated catalog of elite family houses, luxury penthouses, modern clusters, and development vacant stands ready for purchase in Gauteng."}
                     {currentTab === "rent" && "Secure lock-up-and-go corporate apartments, executive townhouses, and A-grade commercial suites with certified long-term tenancy matching."}
                   </p>
@@ -960,11 +1100,36 @@ export default function App() {
                           key={prop.id}
                           property={prop}
                           onViewDetails={(p) => setSelectedProperty(p)}
+                          isFavorited={currentUser ? (currentUser.favorites || []).includes(prop.id) : false}
+                          onToggleFavorite={handleToggleFavorite}
                         />
                       ))}
                     </div>
                   )}
                 </div>
+
+                {/* Recently Viewed Section */}
+                {currentTab === "home" && recentlyViewedProperties.length > 0 && (
+                  <div className="mt-16 pt-12 border-t border-gray-200" id="recently-viewed-section">
+                    <div className="flex items-center gap-2 mb-6">
+                      <History className="h-5 w-5 text-brand-secondary" />
+                      <h3 className="text-lg font-extrabold text-gray-900 uppercase tracking-tight">
+                        Recently Viewed Properties
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {recentlyViewedProperties.slice(0, 3).map((prop) => (
+                        <PropertyCard
+                          key={`recent-${prop.id}`}
+                          property={prop}
+                          onViewDetails={(p) => setSelectedProperty(p)}
+                          isFavorited={currentUser ? (currentUser.favorites || []).includes(prop.id) : false}
+                          onToggleFavorite={handleToggleFavorite}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1087,6 +1252,7 @@ export default function App() {
           onLoginSuccess={handleLoginSuccess}
           existingUsers={existingUsers}
           onRegisterUser={handleRegisterUser}
+          prompt={authModalPrompt}
         />
       )}
     </div>

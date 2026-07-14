@@ -119,7 +119,7 @@ export default function Navbar({
                 className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-brand-hover rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
               >
                 <UserCheck className="h-4 w-4 text-white" />
-                Partner Portal Login
+                Agent & Partner Portal
               </button>
             )}
           </div>
@@ -211,7 +211,7 @@ export default function Navbar({
                     className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-full text-sm font-bold uppercase tracking-wider bg-brand-primary text-white hover:bg-brand-hover transition-all cursor-pointer"
                   >
                     <UserCheck className="h-4 w-4" />
-                    Partner Portal Login
+                    Agent & Partner Portal
                   </button>
                 )}
               </div>

@@ -13,6 +13,7 @@ interface AuthModalProps {
   onLoginSuccess: (user: UserProfile) => void;
   existingUsers: UserProfile[];
   onRegisterUser: (user: UserProfile) => void;
+  prompt?: string;
 }
 
 export default function AuthModal({
@@ -20,6 +21,7 @@ export default function AuthModal({
   onLoginSuccess,
   existingUsers,
   onRegisterUser,
+  prompt,
 }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   
@@ -125,8 +127,8 @@ export default function AuthModal({
     } else {
       // If not present in stored state, let's create a quick demo fallback
       const demoUser: UserProfile = {
-        id: role === "admin" ? "BENO-ADM-001" : role === "agent" ? "BENO-AGT-1" : "BENO-USR-999",
-        name: role === "admin" ? "Beno Admin" : role === "agent" ? "David Beno" : "Sipho Khumalo",
+        id: role === "admin" ? "BENO-ADM-001" : role === "agent" ? "BENO-AGT-1" : role === "landlord" ? "BENO-LL-1" : "BENO-USR-999",
+        name: role === "admin" ? "Beno Admin" : role === "agent" ? "David Beno" : role === "landlord" ? "Thabo Landlord" : "Sipho Khumalo",
         email: email,
         role: role,
         favorites: [],
@@ -197,6 +199,13 @@ export default function AuthModal({
             <div className="p-3 bg-brand-primary/10 border border-brand-primary/20 text-brand-primary rounded-xl text-xs font-bold flex items-center gap-2">
               <UserCheck className="h-4 w-4 shrink-0" />
               <span>{success}</span>
+            </div>
+          )}
+
+          {prompt && !error && !success && (
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-850 rounded-xl text-xs font-bold flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>{prompt}</span>
             </div>
           )}
 
@@ -290,39 +299,50 @@ export default function AuthModal({
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Register As (Role) *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setRegRole("client")}
-                    className={`p-2.5 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
+                    className={`p-2 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
                       regRole === "client"
                         ? "border-brand-primary bg-brand-primary/10 text-brand-primary font-extrabold"
                         : "border-gray-200 hover:bg-gray-50 text-gray-500"
                     }`}
                   >
-                    Client / Buyer
+                    Client
                   </button>
                   <button
                     type="button"
                     onClick={() => setRegRole("agent")}
-                    className={`p-2.5 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
+                    className={`p-2 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
                       regRole === "agent"
                         ? "border-brand-primary bg-brand-primary/10 text-brand-primary font-extrabold"
                         : "border-gray-200 hover:bg-gray-50 text-gray-500"
                     }`}
                   >
-                    Agency Agent
+                    Agent
                   </button>
                   <button
                     type="button"
                     onClick={() => setRegRole("admin")}
-                    className={`p-2.5 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
+                    className={`p-2 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
                       regRole === "admin"
                         ? "border-brand-primary bg-brand-primary/10 text-brand-primary font-extrabold"
                         : "border-gray-200 hover:bg-gray-50 text-gray-500"
                     }`}
                   >
-                    Administrator
+                    Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegRole("landlord")}
+                    className={`p-2 border rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all text-center ${
+                      regRole === "landlord"
+                        ? "border-brand-primary bg-brand-primary/10 text-brand-primary font-extrabold"
+                        : "border-gray-200 hover:bg-gray-50 text-gray-500"
+                    }`}
+                  >
+                    Landlord
                   </button>
                 </div>
               </div>
@@ -382,7 +402,7 @@ export default function AuthModal({
             <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 text-center">
               Quick Sandbox Demo Accounts
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => triggerDemoLogin("client", "sipho@gmail.com")}
                 className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
@@ -400,6 +420,12 @@ export default function AuthModal({
                 className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
               >
                 ⚙️ Agency Admin
+              </button>
+              <button
+                onClick={() => triggerDemoLogin("landlord", "landlord@benoproperties.co.za")}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+              >
+                🏡 Thabo (Landlord)
               </button>
             </div>
           </div>

@@ -105,7 +105,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     imageUrl: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
     isFeatured: true,
     agentId: "BENO-AGT-3",
-    createdAt: "2026-06-20T12:30:00-07:00"
+    createdAt: "2026-06-20T12:30:00-07:00",
+    purchase_date: "2024-07-21" // Anniversary in 7 days!
   },
   {
     id: "BENO-1026",
@@ -124,7 +125,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     imageUrl: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
     isFeatured: true,
     agentId: "BENO-AGT-2",
-    createdAt: "2026-06-25T14:15:00-07:00"
+    createdAt: "2026-06-25T14:15:00-07:00",
+    lease_start_date: "2025-08-15",
+    lease_end_date: "2026-08-13" // Expiring in 30 days!
   },
   {
     id: "BENO-1027",

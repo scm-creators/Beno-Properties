@@ -70,7 +70,7 @@ export default function AgentDirectory({ agents, onContactClick }: AgentDirector
                   ))}
                 </div>
 
-                <p className="text-gray-500 text-xs leading-relaxed line-clamp-3 pt-1">
+                <p className="text-gray-500 text-xs leading-relaxed whitespace-pre-wrap break-words pt-1">
                   {agent.bio}
                 </p>
               </div>
