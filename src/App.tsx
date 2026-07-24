@@ -1027,6 +1027,7 @@ export default function App() {
                 <SearchEngine
                   filters={filters}
                   setFilters={setFilters}
+                  properties={properties}
                   onSearch={(appliedFilters) => {
                     setFilters(appliedFilters);
                   }}
