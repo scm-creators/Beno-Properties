@@ -305,3 +305,77 @@ export interface TenantApplication {
   statusHistory: { status: string; timestamp: string; note: string }[];
 }
 
+// Client Invitation
+export interface ClientInvitation {
+  id: string; // e.g. "INV-101"
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  category: "Buyer" | "Tenant" | "Seller" | "Investor" | "General";
+  invitedByAgentId: string;
+  invitedByAgentName: string;
+  propertyRefId?: string;
+  propertyTitle?: string;
+  inviteLink: string;
+  status: "Sent" | "Opened" | "Accepted" | "Expired";
+  sentAt: string; // ISO date string
+  acceptedAt?: string;
+  customMessage?: string;
+  notes?: string;
+}
+
+// Appointment Types
+export type AppointmentType =
+  | "Property Viewing"
+  | "Valuation Consultation"
+  | "Listing Presentation"
+  | "Tenancy Onboarding"
+  | "Contract & Lease Signing"
+  | "Virtual Tour"
+  | "Advisory Call";
+
+export type AppointmentStatus =
+  | "Scheduled"
+  | "Confirmed"
+  | "Completed"
+  | "Rescheduled"
+  | "Cancelled"
+  | "No Show";
+
+export type AppointmentOutcome =
+  | "Offer Submitted"
+  | "Follow-up Required"
+  | "Application Submitted"
+  | "Not Interested"
+  | "Pending Decision"
+  | "Successfully Closed";
+
+export interface Appointment {
+  id: string; // e.g. "APT-101"
+  title: string;
+  type: AppointmentType;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  clientId?: string;
+  leadId?: string;
+  agentId: string;
+  agentName: string;
+  propertyId?: string;
+  propertyTitle?: string;
+  propertyLocation?: string;
+  location: string; // physical address or online meeting link
+  isVirtual: boolean;
+  virtualMeetingUrl?: string;
+  dateTime: string; // ISO string e.g. "2026-08-20T14:30:00"
+  durationMinutes: number; // 30, 45, 60, 90, 120
+  status: AppointmentStatus;
+  outcome?: AppointmentOutcome;
+  estimatedDealValue?: number; // in ZAR Rands
+  notes?: string;
+  outcomeNotes?: string;
+  reminderSent?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { INITIAL_PROPERTIES, INITIAL_AGENTS, GAUTENG_SUBURBS } from "./data";
+import { INITIAL_PROPERTIES, INITIAL_AGENTS, GAUTENG_SUBURBS, INITIAL_CLIENT_INVITATIONS, INITIAL_APPOINTMENTS } from "./data";
 import {
   Property,
   Agent,
@@ -16,6 +16,8 @@ import {
   BlogArticle,
   UserProfile,
   Lead,
+  Appointment,
+  ClientInvitation,
 } from "./types";
 import Navbar from "./components/Navbar";
 import SearchEngine from "./components/SearchEngine";
@@ -173,6 +175,8 @@ export default function App() {
   const [alertSubscriptions, setAlertSubscriptions] = useState<EmailAlertSubscription[]>([]);
   const [finderRequests, setFinderRequests] = useState<PropertyFinderRequest[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [clientInvitations, setClientInvitations] = useState<ClientInvitation[]>([]);
 
   // Selected property for detailed modal
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -338,7 +342,74 @@ export default function App() {
         setContactMessages(JSON.parse(storedContacts));
       } catch (e) {}
     }
+
+    // 6. Appointments Database
+    const storedAppointments = localStorage.getItem("beno_appointments");
+    if (storedAppointments) {
+      try {
+        setAppointments(JSON.parse(storedAppointments));
+      } catch (e) {
+        setAppointments(INITIAL_APPOINTMENTS);
+      }
+    } else {
+      setAppointments(INITIAL_APPOINTMENTS);
+      localStorage.setItem("beno_appointments", JSON.stringify(INITIAL_APPOINTMENTS));
+    }
+
+    // 7. Client Invitations Database
+    const storedInvitations = localStorage.getItem("beno_client_invitations");
+    if (storedInvitations) {
+      try {
+        setClientInvitations(JSON.parse(storedInvitations));
+      } catch (e) {
+        setClientInvitations(INITIAL_CLIENT_INVITATIONS);
+      }
+    } else {
+      setClientInvitations(INITIAL_CLIENT_INVITATIONS);
+      localStorage.setItem("beno_client_invitations", JSON.stringify(INITIAL_CLIENT_INVITATIONS));
+    }
   }, []);
+
+  // Helpers to persist appointments and invitations
+  const updateAndStoreAppointments = (updated: Appointment[]) => {
+    setAppointments(updated);
+    localStorage.setItem("beno_appointments", JSON.stringify(updated));
+  };
+
+  const handleAddAppointment = (newApt: Appointment) => {
+    const updated = [newApt, ...appointments];
+    updateAndStoreAppointments(updated);
+  };
+
+  const handleUpdateAppointment = (updatedApt: Appointment) => {
+    const updated = appointments.map((a) => (a.id === updatedApt.id ? updatedApt : a));
+    updateAndStoreAppointments(updated);
+  };
+
+  const handleDeleteAppointment = (id: string) => {
+    const updated = appointments.filter((a) => a.id !== id);
+    updateAndStoreAppointments(updated);
+  };
+
+  const updateAndStoreInvitations = (updated: ClientInvitation[]) => {
+    setClientInvitations(updated);
+    localStorage.setItem("beno_client_invitations", JSON.stringify(updated));
+  };
+
+  const handleAddInvitation = (newInv: ClientInvitation) => {
+    const updated = [newInv, ...clientInvitations];
+    updateAndStoreInvitations(updated);
+  };
+
+  const handleUpdateInvitation = (updatedInv: ClientInvitation) => {
+    const updated = clientInvitations.map((i) => (i.id === updatedInv.id ? updatedInv : i));
+    updateAndStoreInvitations(updated);
+  };
+
+  const handleDeleteInvitation = (id: string) => {
+    const updated = clientInvitations.filter((i) => i.id !== id);
+    updateAndStoreInvitations(updated);
+  };
 
   // Support loading property on mount or url changes if specified in URL query
   useEffect(() => {
@@ -887,6 +958,14 @@ export default function App() {
                 setAuthModalPrompt(promptText || "");
                 setIsAuthModalOpen(true);
               }}
+              appointments={appointments}
+              onAddAppointment={handleAddAppointment}
+              onUpdateAppointment={handleUpdateAppointment}
+              onDeleteAppointment={handleDeleteAppointment}
+              clientInvitations={clientInvitations}
+              onAddInvitation={handleAddInvitation}
+              onUpdateInvitation={handleUpdateInvitation}
+              onDeleteInvitation={handleDeleteInvitation}
             />
           </div>
         ) : currentTab === "portal" && !currentUser ? (

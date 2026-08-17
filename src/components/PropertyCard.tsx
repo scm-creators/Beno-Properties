@@ -15,7 +15,7 @@ interface PropertyCardProps {
   onToggleFavorite?: (propertyId: string) => void;
 }
 
-export const formatPriceZAR = (price: number, status: string) => {
+export const formatPriceZAR = (price: number, status: string = "For Sale") => {
   const formatted = new Intl.NumberFormat("en-ZA", {
     style: "currency",
     currency: "ZAR",

@@ -8,17 +8,19 @@ import {
   User, Heart, Bell, Plus, ShieldAlert, Sparkles, Inbox, 
   Trash2, Edit, Save, Check, CheckCircle, Upload, Image as ImageIcon,
   FolderOpen, UserPlus, FileText, ChevronRight, Filter, Search, Tag, Phone,
-  Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp
+  Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp, CalendarCheck, BarChart3
 } from "lucide-react";
 import { 
   UserProfile, Property, Lead, Agent, EmailAlertSubscription,
-  PropertyType, PropertyStatus
+  PropertyType, PropertyStatus, Appointment, ClientInvitation
 } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import { GAUTENG_SUBURBS } from "../data";
 import RelationshipAssistant from "./RelationshipAssistant";
 import TenantVetting from "./TenantVetting";
 import BondCalculator from "./BondCalculator";
+import AppointmentsManager from "./AppointmentsManager";
+import MonthlyReports from "./MonthlyReports";
 import { useReminderSystem } from "../hooks/useReminderSystem";
 
 interface DashboardProps {
@@ -37,6 +39,14 @@ interface DashboardProps {
   onSelectPropertyDetails?: (id: string) => void;
   onDeleteProfile?: (id: string) => void;
   onOpenAuth?: (prompt?: string) => void;
+  appointments: Appointment[];
+  onAddAppointment: (appointment: Appointment) => void;
+  onUpdateAppointment: (appointment: Appointment) => void;
+  onDeleteAppointment: (id: string) => void;
+  clientInvitations: ClientInvitation[];
+  onAddInvitation: (invitation: ClientInvitation) => void;
+  onUpdateInvitation: (invitation: ClientInvitation) => void;
+  onDeleteInvitation: (id: string) => void;
 }
 
 export default function Dashboard({
@@ -55,6 +65,14 @@ export default function Dashboard({
   onSelectPropertyDetails,
   onDeleteProfile,
   onOpenAuth,
+  appointments = [],
+  onAddAppointment,
+  onUpdateAppointment,
+  onDeleteAppointment,
+  clientInvitations = [],
+  onAddInvitation,
+  onUpdateInvitation,
+  onDeleteInvitation,
 }: DashboardProps) {
   // Navigation tabs based on user role
   const getTabs = () => {
@@ -62,6 +80,7 @@ export default function Dashboard({
       case "client":
         return [
           { id: "profile", label: "My Profile", icon: User },
+          { id: "client-appointments", label: "My Appointments", icon: CalendarCheck },
           { id: "favorites", label: "Saved Favorites", icon: Heart },
           { id: "alerts", label: "Search Alerts", icon: Bell },
           { id: "tools", label: "Tools", icon: Wrench },
@@ -69,6 +88,8 @@ export default function Dashboard({
       case "agent":
         return [
           { id: "agent-profile", label: "Agent Profile", icon: User },
+          { id: "appointments", label: "Appointments & Invites", icon: CalendarCheck },
+          { id: "monthly-reports", label: "Monthly Reports", icon: BarChart3 },
           { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
           { id: "tenant-vetting", label: "Tenant Vetting", icon: FileText },
           { id: "agent-properties", label: "My Listings", icon: FolderOpen },
@@ -82,6 +103,8 @@ export default function Dashboard({
       case "admin":
         return [
           { id: "admin-profile", label: "Admin Profile", icon: User },
+          { id: "appointments", label: "Appointments & Invites", icon: CalendarCheck },
+          { id: "monthly-reports", label: "Monthly Reports", icon: BarChart3 },
           { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
           { id: "tenant-vetting", label: "Tenant Vetting", icon: FileText },
           { id: "lead-manager", label: "Lead Board", icon: Inbox },
@@ -1522,6 +1545,127 @@ export default function Dashboard({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "appointments" && (
+            <AppointmentsManager
+              currentUser={currentUser}
+              appointments={appointments}
+              onAddAppointment={onAddAppointment}
+              onUpdateAppointment={onUpdateAppointment}
+              onDeleteAppointment={onDeleteAppointment}
+              clientInvitations={clientInvitations}
+              onAddInvitation={onAddInvitation}
+              onUpdateInvitation={onUpdateInvitation}
+              onDeleteInvitation={onDeleteInvitation}
+              properties={properties}
+              agents={agents}
+              leads={leads}
+              onSelectPropertyDetails={onSelectPropertyDetails}
+            />
+          )}
+
+          {activeTab === "monthly-reports" && (
+            <MonthlyReports
+              currentUser={currentUser}
+              appointments={appointments}
+              clientInvitations={clientInvitations}
+              properties={properties}
+              agents={agents}
+            />
+          )}
+
+          {activeTab === "client-appointments" && (
+            <div className="space-y-6" id="ws-client-appointments">
+              <div className="border-b border-gray-150 pb-4">
+                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <CalendarCheck className="h-5 w-5 text-brand-secondary" />
+                  My Scheduled Viewings & Appointments
+                </h3>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Track your private viewings, virtual tours, and consultation sessions with Beno Properties agents.
+                </p>
+              </div>
+
+              {(() => {
+                const clientApts = appointments.filter(
+                  (a) => a.clientEmail.toLowerCase() === currentUser.email.toLowerCase() ||
+                         a.clientName.toLowerCase().includes(currentUser.name.toLowerCase())
+                );
+
+                if (clientApts.length === 0) {
+                  return (
+                    <div className="bg-white border border-dashed border-gray-300 rounded-3xl p-12 text-center max-w-lg mx-auto">
+                      <CalendarCheck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <h4 className="text-base font-bold text-gray-800">No Scheduled Appointments</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        You don't have any upcoming property viewings or consultations booked yet. Browse our catalog and click "Inquire & Schedule Viewing" on any property.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 gap-4">
+                    {clientApts.map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-brand-primary/10 text-brand-primary px-2.5 py-0.5 rounded-full">
+                              {apt.type}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                apt.status === "Confirmed"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : apt.status === "Completed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {apt.status}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-gray-900">{apt.title}</h4>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                            <span className="font-semibold text-gray-700">
+                              📅 {new Date(apt.dateTime).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })} at{" "}
+                              {new Date(apt.dateTime).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span>📍 {apt.location}</span>
+                            <span>👤 Host Agent: <strong>{apt.agentName}</strong></span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start sm:self-center">
+                          {apt.isVirtual && apt.virtualMeetingUrl && (
+                            <a
+                              href={apt.virtualMeetingUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all"
+                            >
+                              Join Online Tour
+                            </a>
+                          )}
+                          {apt.propertyId && onSelectPropertyDetails && (
+                            <button
+                              onClick={() => onSelectPropertyDetails(apt.propertyId!)}
+                              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-all"
+                            >
+                              View Property
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
