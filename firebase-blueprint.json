@@ -1,0 +1,188 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access, preferences, and contact details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user identifier matching auth UID or assigned ID", "maxLength": 128 },
+        "name": { "type": "string", "description": "Display name of the user", "maxLength": 100 },
+        "email": { "type": "string", "description": "User email address", "maxLength": 150 },
+        "phone": { "type": "string", "description": "Contact phone number", "maxLength": 30 },
+        "role": { "type": "string", "enum": ["client", "agent", "admin", "landlord"], "description": "Assigned user role" },
+        "favorites": { "type": "array", "description": "Saved favorite property IDs" },
+        "bio": { "type": "string", "description": "Professional bio for agents", "maxLength": 2000 },
+        "title": { "type": "string", "description": "Professional designation or title", "maxLength": 100 },
+        "specialization": { "type": "array", "description": "Agent specializations or areas" },
+        "imageUrl": { "type": "string", "description": "Avatar or profile photo URL", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "Creation timestamp in ISO format", "maxLength": 50 }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "Real estate property listing in Gauteng catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Web reference ID e.g. BENO-1024", "maxLength": 64 },
+        "title": { "type": "string", "description": "Listing headline title", "maxLength": 200 },
+        "description": { "type": "string", "description": "Full property description", "maxLength": 5000 },
+        "type": { "type": "string", "enum": ["House", "Apartment", "Townhouse", "Vacant Land", "Farm", "Commercial", "Industrial"], "description": "Property category" },
+        "status": { "type": "string", "enum": ["For Sale", "To Rent"], "description": "Listing transaction status" },
+        "price": { "type": "number", "description": "Price in South African Rands (ZAR)" },
+        "location": { "type": "string", "description": "Suburb or neighborhood", "maxLength": 100 },
+        "city": { "type": "string", "description": "City name", "maxLength": 100 },
+        "province": { "type": "string", "description": "Province name e.g. Gauteng", "maxLength": 100 },
+        "bedrooms": { "type": "number", "description": "Count of bedrooms" },
+        "bathrooms": { "type": "number", "description": "Count of bathrooms" },
+        "parkingSpaces": { "type": "number", "description": "Number of covered/open parking bays" },
+        "sizeSqM": { "type": "number", "description": "Floor or erfs size in square meters" },
+        "imageUrl": { "type": "string", "description": "Primary feature photo URL", "maxLength": 500 },
+        "additionalImages": { "type": "array", "description": "Additional gallery photo URLs" },
+        "isFeatured": { "type": "boolean", "description": "Promoted or featured listing badge" },
+        "agentId": { "type": "string", "description": "ID of the listing agent", "maxLength": 64 },
+        "createdAt": { "type": "string", "description": "Creation timestamp in ISO format", "maxLength": 50 }
+      },
+      "required": ["id", "title", "type", "status", "price", "location", "city", "province", "imageUrl", "agentId"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled property viewing or client consultation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique appointment identifier e.g. APT-101", "maxLength": 64 },
+        "title": { "type": "string", "description": "Appointment title or summary", "maxLength": 200 },
+        "type": { "type": "string", "description": "Meeting category e.g. Property Viewing", "maxLength": 64 },
+        "clientName": { "type": "string", "description": "Name of the client", "maxLength": 100 },
+        "clientEmail": { "type": "string", "description": "Email address of the client", "maxLength": 150 },
+        "clientPhone": { "type": "string", "description": "Contact telephone number of client", "maxLength": 30 },
+        "clientId": { "type": "string", "description": "Associated user account ID", "maxLength": 128 },
+        "leadId": { "type": "string", "description": "Associated lead ID", "maxLength": 64 },
+        "agentId": { "type": "string", "description": "Assigned agent identifier", "maxLength": 128 },
+        "agentName": { "type": "string", "description": "Name of the assigned agent", "maxLength": 100 },
+        "propertyId": { "type": "string", "description": "Target property reference ID", "maxLength": 64 },
+        "propertyTitle": { "type": "string", "description": "Target property title", "maxLength": 200 },
+        "propertyLocation": { "type": "string", "description": "Target property suburb", "maxLength": 100 },
+        "location": { "type": "string", "description": "Physical address or meeting location", "maxLength": 300 },
+        "isVirtual": { "type": "boolean", "description": "Whether this is a virtual video tour/call" },
+        "virtualMeetingUrl": { "type": "string", "description": "Online video meeting URL", "maxLength": 500 },
+        "dateTime": { "type": "string", "description": "ISO timestamp for the scheduled date and time", "maxLength": 50 },
+        "durationMinutes": { "type": "number", "description": "Duration in minutes" },
+        "status": { "type": "string", "description": "Current status of appointment", "maxLength": 30 },
+        "outcome": { "type": "string", "description": "Debrief outcome", "maxLength": 50 },
+        "estimatedDealValue": { "type": "number", "description": "Pipeline estimated deal value in ZAR" },
+        "notes": { "type": "string", "description": "Preparation notes", "maxLength": 2000 },
+        "outcomeNotes": { "type": "string", "description": "Post-meeting summary notes", "maxLength": 2000 },
+        "reminderSent": { "type": "boolean", "description": "Whether an automated reminder was sent" },
+        "createdAt": { "type": "string", "description": "Creation timestamp in ISO format", "maxLength": 50 },
+        "updatedAt": { "type": "string", "description": "Last update timestamp in ISO format", "maxLength": 50 }
+      },
+      "required": ["id", "title", "type", "clientName", "clientEmail", "agentId", "agentName", "location", "dateTime", "durationMinutes", "status"]
+    },
+    "ClientInvitation": {
+      "title": "ClientInvitation",
+      "description": "VIP client onboarding invitation link sent by an agent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique invitation identifier e.g. INV-101", "maxLength": 64 },
+        "clientName": { "type": "string", "description": "Name of invited client", "maxLength": 100 },
+        "clientEmail": { "type": "string", "description": "Email address of invited client", "maxLength": 150 },
+        "clientPhone": { "type": "string", "description": "Phone number of client", "maxLength": 30 },
+        "category": { "type": "string", "description": "Client intent category", "maxLength": 30 },
+        "invitedByAgentId": { "type": "string", "description": "Agent user UID who generated invite", "maxLength": 128 },
+        "invitedByAgentName": { "type": "string", "description": "Display name of agent", "maxLength": 100 },
+        "propertyRefId": { "type": "string", "description": "Referenced property ID", "maxLength": 64 },
+        "propertyTitle": { "type": "string", "description": "Referenced property title", "maxLength": 200 },
+        "inviteLink": { "type": "string", "description": "Generated unique invitation URL", "maxLength": 500 },
+        "status": { "type": "string", "description": "Invite status", "maxLength": 20 },
+        "sentAt": { "type": "string", "description": "Dispatch timestamp", "maxLength": 50 },
+        "acceptedAt": { "type": "string", "description": "Acceptance timestamp", "maxLength": 50 },
+        "customMessage": { "type": "string", "description": "Personalized agent message", "maxLength": 1500 },
+        "notes": { "type": "string", "description": "Internal agent notes", "maxLength": 1500 }
+      },
+      "required": ["id", "clientName", "clientEmail", "category", "invitedByAgentId", "invitedByAgentName", "inviteLink", "status", "sentAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Inquiry or prospective buyer/seller lead captured on platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique lead identifier e.g. LEAD-101", "maxLength": 64 },
+        "type": { "type": "string", "description": "Lead source type e.g. Contact, Property Finder", "maxLength": 50 },
+        "name": { "type": "string", "description": "Contact person name", "maxLength": 100 },
+        "email": { "type": "string", "description": "Contact email address", "maxLength": 150 },
+        "phone": { "type": "string", "description": "Contact telephone number", "maxLength": 30 },
+        "status": { "type": "string", "description": "Pipeline status", "maxLength": 30 },
+        "category": { "type": "string", "description": "Category: Buyer, Seller, Tenant, General", "maxLength": 30 },
+        "assignedAgentId": { "type": "string", "description": "Agent ID assigned to manage the lead", "maxLength": 128 },
+        "notes": { "type": "string", "description": "Internal lead management notes", "maxLength": 2000 },
+        "propertyRefId": { "type": "string", "description": "Associated property reference ID", "maxLength": 64 },
+        "details": { "type": "string", "description": "Client specific requirements", "maxLength": 2000 },
+        "tags": { "type": "array", "description": "Search or classification tags" },
+        "createdAt": { "type": "string", "description": "Creation timestamp in ISO format", "maxLength": 50 },
+        "userId": { "type": "string", "description": "User UID who submitted this inquiry if logged in", "maxLength": 128 }
+      },
+      "required": ["id", "type", "name", "email", "status", "category", "createdAt"]
+    },
+    "TenantApplication": {
+      "title": "TenantApplication",
+      "description": "Comprehensive residential tenant vetting application form",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Application ID e.g. TAPP-2026-001", "maxLength": 64 },
+        "propertyId": { "type": "string", "description": "Target rental property ID", "maxLength": 64 },
+        "applicantId": { "type": "string", "description": "User UID of applicant", "maxLength": 128 },
+        "applicantName": { "type": "string", "description": "Full legal name of applicant", "maxLength": 100 },
+        "applicantEmail": { "type": "string", "description": "Email address", "maxLength": 150 },
+        "applicantPhone": { "type": "string", "description": "Contact phone", "maxLength": 30 },
+        "monthlyRental": { "type": "number", "description": "Monthly rental amount in ZAR" },
+        "depositAmount": { "type": "number", "description": "Security deposit in ZAR" },
+        "status": { "type": "string", "description": "Workflow status of application", "maxLength": 50 },
+        "submittedAt": { "type": "string", "description": "Submission ISO timestamp", "maxLength": 50 }
+      },
+      "required": ["id", "propertyId", "applicantId", "applicantName", "applicantEmail", "status", "submittedAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin authorization registry document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User UID of administrator", "maxLength": 128 },
+        "email": { "type": "string", "description": "Verified administrator email", "maxLength": 150 },
+        "role": { "type": "string", "description": "Admin role designation", "maxLength": 50 },
+        "addedAt": { "type": "string", "description": "Authorization timestamp", "maxLength": 50 }
+      },
+      "required": ["id", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account profiles with role, preferences, favorites, and contact info"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Property listings catalog in Gauteng"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Scheduled appointments and property viewings between clients and agents"
+    },
+    "/clientInvitations/{invitationId}": {
+      "schema": "ClientInvitation",
+      "description": "VIP client invitations generated by agents"
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Client leads, property finder requests, and inquiries"
+    },
+    "/tenantApplications/{applicationId}": {
+      "schema": "TenantApplication",
+      "description": "Rental tenant vetting applications"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Authorized system administrators"
+    }
+  }
+}

@@ -36,6 +36,21 @@ import Helmet from "./components/Helmet";
 import Sitemap from "./components/Sitemap";
 import { AnimatePresence } from "motion/react";
 import { Building2, Landmark, RefreshCw, Star, SlidersHorizontal, AlertCircle, HelpCircle, ShieldCheck, History } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  auth,
+  testConnection,
+  signOutUser,
+  syncOrCreateUserProfile,
+  updateUserProfileInFirestore,
+  saveAppointmentToFirestore,
+  saveClientInvitationToFirestore,
+  saveLeadToFirestore,
+  savePropertyToFirestore,
+  subscribeToAppointments,
+  subscribeToClientInvitations,
+  subscribeToLeads,
+} from "./firebase";
 
 const INITIAL_USERS: UserProfile[] = [
   {
@@ -368,7 +383,94 @@ export default function App() {
       setClientInvitations(INITIAL_CLIENT_INVITATIONS);
       localStorage.setItem("beno_client_invitations", JSON.stringify(INITIAL_CLIENT_INVITATIONS));
     }
+
+    // Test Firestore connection on boot as instructed by skill
+    testConnection().catch(console.error);
+
+    // Listen to Firebase Auth state
+    const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const userProfile = await syncOrCreateUserProfile(fbUser);
+          setCurrentUser(userProfile);
+          localStorage.setItem("beno_current_user", JSON.stringify(userProfile));
+          if (userProfile.role === "admin") {
+            setIsAdmin(true);
+          }
+          setExistingUsers((prev) => {
+            if (!prev.some((u) => u.id === userProfile.id)) {
+              const updated = [userProfile, ...prev];
+              localStorage.setItem("beno_users", JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
+        } catch (e) {
+          console.warn("Error syncing user profile on auth state change:", e);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
   }, []);
+
+  // Subscribe to realtime updates for appointments, client invitations, and leads when user is authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const unsubApts = subscribeToAppointments(currentUser.id, currentUser.role, (remoteApts) => {
+      if (remoteApts && remoteApts.length > 0) {
+        setAppointments((prev) => {
+          const merged = [...remoteApts];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.id === p.id)) {
+              merged.push(p);
+            }
+          });
+          localStorage.setItem("beno_appointments", JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+
+    const unsubInvs = subscribeToClientInvitations((remoteInvs) => {
+      if (remoteInvs && remoteInvs.length > 0) {
+        setClientInvitations((prev) => {
+          const merged = [...remoteInvs];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.id === p.id)) {
+              merged.push(p);
+            }
+          });
+          localStorage.setItem("beno_client_invitations", JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+
+    const unsubLeads = subscribeToLeads((remoteLeads) => {
+      if (remoteLeads && remoteLeads.length > 0) {
+        setLeads((prev) => {
+          const merged = [...remoteLeads];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.id === p.id)) {
+              merged.push(p);
+            }
+          });
+          localStorage.setItem("beno_leads", JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+
+    return () => {
+      if (unsubApts) unsubApts();
+      if (unsubInvs) unsubInvs();
+      if (unsubLeads) unsubLeads();
+    };
+  }, [currentUser]);
 
   // Helpers to persist appointments and invitations
   const updateAndStoreAppointments = (updated: Appointment[]) => {
@@ -379,11 +481,17 @@ export default function App() {
   const handleAddAppointment = (newApt: Appointment) => {
     const updated = [newApt, ...appointments];
     updateAndStoreAppointments(updated);
+    saveAppointmentToFirestore(newApt).catch((e) => {
+      console.warn("Could not sync appointment to Firestore:", e);
+    });
   };
 
   const handleUpdateAppointment = (updatedApt: Appointment) => {
     const updated = appointments.map((a) => (a.id === updatedApt.id ? updatedApt : a));
     updateAndStoreAppointments(updated);
+    saveAppointmentToFirestore(updatedApt).catch((e) => {
+      console.warn("Could not sync appointment update to Firestore:", e);
+    });
   };
 
   const handleDeleteAppointment = (id: string) => {
@@ -399,11 +507,17 @@ export default function App() {
   const handleAddInvitation = (newInv: ClientInvitation) => {
     const updated = [newInv, ...clientInvitations];
     updateAndStoreInvitations(updated);
+    saveClientInvitationToFirestore(newInv).catch((e) => {
+      console.warn("Could not sync client invitation to Firestore:", e);
+    });
   };
 
   const handleUpdateInvitation = (updatedInv: ClientInvitation) => {
     const updated = clientInvitations.map((i) => (i.id === updatedInv.id ? updatedInv : i));
     updateAndStoreInvitations(updated);
+    saveClientInvitationToFirestore(updatedInv).catch((e) => {
+      console.warn("Could not sync client invitation update to Firestore:", e);
+    });
   };
 
   const handleDeleteInvitation = (id: string) => {
@@ -435,6 +549,9 @@ export default function App() {
   const handleAddProperty = (newProp: Property) => {
     const updated = [newProp, ...properties];
     updateAndStoreProperties(updated);
+    savePropertyToFirestore(newProp).catch((e) => {
+      console.warn("Could not sync property to Firestore:", e);
+    });
   };
 
   // Callback: Delete a property (Admin)
@@ -447,12 +564,20 @@ export default function App() {
   const handleUpdateProperty = (updatedProp: Property) => {
     const updated = properties.map((p) => (p.id === updatedProp.id ? updatedProp : p));
     updateAndStoreProperties(updated);
+    savePropertyToFirestore(updatedProp).catch((e) => {
+      console.warn("Could not sync property update to Firestore:", e);
+    });
   };
 
   // Helper to store leads list
   const updateAndStoreLeads = (updatedLeads: Lead[]) => {
     setLeads(updatedLeads);
     localStorage.setItem("beno_leads", JSON.stringify(updatedLeads));
+    if (updatedLeads.length > 0) {
+      saveLeadToFirestore(updatedLeads[0]).catch((e) => {
+        console.warn("Could not sync lead to Firestore:", e);
+      });
+    }
   };
 
   // Callback: Client lists a property
@@ -719,6 +844,7 @@ export default function App() {
     setCurrentUser(null);
     setIsAdmin(false);
     localStorage.removeItem("beno_current_user");
+    signOutUser().catch(console.error);
     setCurrentTab("home");
   };
 
@@ -731,6 +857,10 @@ export default function App() {
       setCurrentUser(updatedProfile);
       localStorage.setItem("beno_current_user", JSON.stringify(updatedProfile));
     }
+
+    updateUserProfileInFirestore(updatedProfile).catch((e) => {
+      console.warn("Could not sync profile to Firestore:", e);
+    });
 
     if (updatedProfile.role === "agent") {
       const updatedAgents = agents.map(a => {

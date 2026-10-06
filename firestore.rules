@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'strcoderecords@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Test connection probe
+    match /test/{testId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Administrators collection
+    match /admins/{adminId} {
+      allow read, write: if isValidId(adminId) && isAdmin();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (
+        isUser(userId) || 
+        isAdmin() || 
+        (resource != null && resource.data.role == 'agent')
+      );
+
+      allow list: if isSignedIn() && (isAdmin() || resource.data.role == 'agent' || resource.data.id == request.auth.uid);
+
+      allow create: if isValidId(userId) && isUser(userId) &&
+        incoming().keys().hasAll(['id', 'name', 'email', 'role']) &&
+        incoming().keys().hasOnly(['id', 'name', 'email', 'phone', 'role', 'favorites', 'bio', 'title', 'specialization', 'imageUrl', 'createdAt']) &&
+        incoming().id == userId &&
+        incoming().name is string && incoming().name.size() <= 100 &&
+        incoming().email is string && incoming().email.size() <= 150 &&
+        (incoming().role != 'admin' || isAdmin());
+
+      allow update: if isValidId(userId) && (
+        isAdmin() ||
+        (
+          isUser(userId) &&
+          incoming().id == existing().id &&
+          (incoming().role == existing().role || isAdmin()) &&
+          incoming().name is string && incoming().name.size() <= 100
+        )
+      );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Properties Catalog
+    match /properties/{propertyId} {
+      allow read: if isValidId(propertyId);
+
+      allow create: if isValidId(propertyId) && isVerified() &&
+        incoming().keys().hasAll(['id', 'title', 'type', 'status', 'price', 'location', 'city', 'province', 'imageUrl', 'agentId']) &&
+        incoming().title is string && incoming().title.size() <= 200 &&
+        incoming().price is number &&
+        (isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))));
+
+      allow update: if isValidId(propertyId) && isVerified() &&
+        incoming().id == existing().id &&
+        (isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))));
+
+      allow delete: if isValidId(propertyId) && isVerified() &&
+        (isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))));
+    }
+
+    // Appointments and Viewings
+    match /appointments/{appointmentId} {
+      allow get: if isValidId(appointmentId) && isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.agentId == request.auth.uid ||
+        resource.data.clientEmail == request.auth.token.email
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.agentId == request.auth.uid ||
+        resource.data.clientEmail == request.auth.token.email
+      );
+
+      allow create: if isValidId(appointmentId) && isVerified() &&
+        incoming().keys().hasAll(['id', 'title', 'type', 'clientName', 'clientEmail', 'agentId', 'agentName', 'location', 'dateTime', 'durationMinutes', 'status']) &&
+        incoming().title is string && incoming().title.size() <= 200 &&
+        (isAdmin() || incoming().clientId == request.auth.uid || incoming().agentId == request.auth.uid || incoming().clientEmail == request.auth.token.email);
+
+      allow update: if isValidId(appointmentId) && isVerified() && (
+        isAdmin() ||
+        existing().clientId == request.auth.uid ||
+        existing().agentId == request.auth.uid ||
+        existing().clientEmail == request.auth.token.email
+      );
+
+      allow delete: if isValidId(appointmentId) && isVerified() && (
+        isAdmin() ||
+        existing().agentId == request.auth.uid
+      );
+    }
+
+    // Client VIP Invitations
+    match /clientInvitations/{invitationId} {
+      // Invite links can be inspected by recipients
+      allow get: if isValidId(invitationId);
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.invitedByAgentId == request.auth.uid ||
+        resource.data.clientEmail == request.auth.token.email
+      );
+
+      allow create: if isValidId(invitationId) && isVerified() &&
+        incoming().keys().hasAll(['id', 'clientName', 'clientEmail', 'category', 'invitedByAgentId', 'invitedByAgentName', 'inviteLink', 'status', 'sentAt']) &&
+        (isAdmin() || incoming().invitedByAgentId == request.auth.uid);
+
+      allow update: if isValidId(invitationId) && (
+        isAdmin() ||
+        (isVerified() && existing().invitedByAgentId == request.auth.uid) ||
+        // Recipient accepting the invitation
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'acceptedAt']) &&
+          incoming().status == 'Accepted'
+        )
+      );
+
+      allow delete: if isValidId(invitationId) && isVerified() && (
+        isAdmin() ||
+        existing().invitedByAgentId == request.auth.uid
+      );
+    }
+
+    // Client Inquiries and Leads
+    match /leads/{leadId} {
+      allow get: if isValidId(leadId) && (
+        isAdmin() ||
+        (isSignedIn() && (resource.data.assignedAgentId == request.auth.uid || resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email))
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.assignedAgentId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.email == request.auth.token.email
+      );
+
+      // Anyone browsing can submit an inquiry/lead
+      allow create: if isValidId(leadId) &&
+        incoming().keys().hasAll(['id', 'type', 'name', 'email', 'status', 'category', 'createdAt']) &&
+        incoming().name is string && incoming().name.size() <= 100 &&
+        incoming().email is string && incoming().email.size() <= 150;
+
+      allow update: if isValidId(leadId) && isSignedIn() && (
+        isAdmin() ||
+        existing().assignedAgentId == request.auth.uid
+      );
+
+      allow delete: if isValidId(leadId) && isAdmin();
+    }
+
+    // Tenant Vetting Applications
+    match /tenantApplications/{applicationId} {
+      allow get: if isValidId(applicationId) && isSignedIn() && (
+        isAdmin() ||
+        resource.data.applicantId == request.auth.uid ||
+        resource.data.applicantEmail == request.auth.token.email
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.applicantId == request.auth.uid ||
+        resource.data.applicantEmail == request.auth.token.email
+      );
+
+      allow create: if isValidId(applicationId) && isVerified() &&
+        incoming().applicantId == request.auth.uid &&
+        incoming().applicantEmail is string;
+
+      allow update: if isValidId(applicationId) && isSignedIn() && (
+        isAdmin() ||
+        existing().applicantId == request.auth.uid
+      );
+
+      allow delete: if isValidId(applicationId) && isAdmin();
+    }
+  }
+}

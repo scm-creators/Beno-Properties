@@ -101,7 +101,18 @@ export default function Navbar({
                       <User className="h-3 w-3 text-brand-primary" />
                     )}
                   </div>
-                  <span className="text-xs font-extrabold text-gray-800 tracking-tight">{currentUser.name.split(" ")[0]}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-gray-800 tracking-tight">{currentUser.name.split(" ")[0]}</span>
+                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                      currentUser.role === "admin"
+                        ? "bg-purple-100 text-purple-700"
+                        : currentUser.role === "agent"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {currentUser.role}
+                    </span>
+                  </div>
                 </button>
 
                 {/* Direct quick logout */}
@@ -119,7 +130,7 @@ export default function Navbar({
                 className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-brand-hover rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
               >
                 <UserCheck className="h-4 w-4 text-white" />
-                Agent & Partner Portal
+                Sign In / Portal
               </button>
             )}
           </div>

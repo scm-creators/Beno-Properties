@@ -35,6 +35,7 @@ import {
   VerificationChecklist, 
   CreditReport 
 } from "../types";
+import { saveTenantApplicationToFirestore } from "../firebase";
 
 interface TenantVettingProps {
   properties: Property[];
@@ -299,6 +300,11 @@ export default function TenantVetting({
   const saveApplications = (newApps: TenantApplication[]) => {
     setApplications(newApps);
     localStorage.setItem("beno_tenant_applications", JSON.stringify(newApps));
+    if (newApps.length > 0) {
+      saveTenantApplicationToFirestore(newApps[0]).catch((err) => {
+        console.warn("Could not sync tenant application to Firestore:", err);
+      });
+    }
   };
 
   // State for filling new application
