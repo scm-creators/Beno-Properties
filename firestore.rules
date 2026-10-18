@@ -60,13 +60,14 @@ service cloud.firestore {
 
       allow list: if isSignedIn() && (isAdmin() || resource.data.role == 'agent' || resource.data.id == request.auth.uid);
 
-      allow create: if isValidId(userId) && isUser(userId) &&
+      allow create: if isValidId(userId) && (isUser(userId) || isAdmin()) &&
         incoming().keys().hasAll(['id', 'name', 'email', 'role']) &&
-        incoming().keys().hasOnly(['id', 'name', 'email', 'phone', 'role', 'favorites', 'bio', 'title', 'specialization', 'imageUrl', 'createdAt']) &&
+        incoming().keys().hasOnly(['id', 'name', 'email', 'phone', 'role', 'favorites', 'bio', 'title', 'specialization', 'imageUrl', 'createdAt', 'approvalStatus', 'approvalNotes', 'reviewedAt']) &&
         incoming().id == userId &&
         incoming().name is string && incoming().name.size() <= 100 &&
         incoming().email is string && incoming().email.size() <= 150 &&
-        (incoming().role != 'admin' || isAdmin());
+        (incoming().role != 'admin' || isAdmin()) &&
+        (isAdmin() || !('approvalStatus' in incoming()) || (incoming().role in ['agent', 'landlord'] ? incoming().approvalStatus == 'pending' : incoming().approvalStatus == 'approved'));
 
       allow update: if isValidId(userId) && (
         isAdmin() ||
@@ -74,11 +75,18 @@ service cloud.firestore {
           isUser(userId) &&
           incoming().id == existing().id &&
           (incoming().role == existing().role || isAdmin()) &&
-          incoming().name is string && incoming().name.size() <= 100
+          incoming().name is string && incoming().name.size() <= 100 &&
+          (!incoming().diff(existing()).affectedKeys().hasAny(['role', 'approvalStatus', 'approvalNotes', 'reviewedAt']))
         )
       );
 
       allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Public / Managed Agents Directory
+    match /agents/{agentId} {
+      allow read: if isValidId(agentId);
+      allow write: if isValidId(agentId) && isAdmin();
     }
 
     // Properties Catalog

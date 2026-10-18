@@ -4,10 +4,12 @@
  */
 
 import React, { useState } from "react";
-import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video, Link, MessageCircle } from "lucide-react";
+import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video, Link, MessageCircle, MapPin, TrendingUp, Sparkles, Share2, Copy, Check } from "lucide-react";
 import { Property, Agent, ContactMessage } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import BondCalculator from "./BondCalculator";
+import NeighborhoodGuide from "./NeighborhoodGuide";
+import MarketIntelligence from "./MarketIntelligence";
 
 interface PropertyDetailsModalProps {
   property: Property;
@@ -24,34 +26,125 @@ export default function PropertyDetailsModal({
   onSubmitContactMessage,
   onSubmitVirtualTourRequest,
 }: PropertyDetailsModalProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "calculator">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "neighborhood" | "market" | "calculator">("overview");
 
-  // Copy Link State
+  // Share & Permalink State
   const [copied, setCopied] = useState(false);
+  const [isShared, setIsShared] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}${window.location.pathname}?property=${property.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
+  const getPropertyPermalink = () => {
+    return `${window.location.origin}${window.location.pathname}?property=${encodeURIComponent(property.id)}`;
+  };
+
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
       const textArea = document.createElement("textarea");
-      textArea.value = url;
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
       document.body.appendChild(textArea);
+      textArea.focus();
       textArea.select();
-      try {
-        document.execCommand("copy");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {}
+      const success = document.execCommand("copy");
       document.body.removeChild(textArea);
-    });
+      return success;
+    } catch (err) {
+      console.warn("Clipboard copy fallback error:", err);
+      return false;
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = getPropertyPermalink();
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopied(true);
+      setShareFeedback("Property permalink copied to clipboard!");
+      setTimeout(() => {
+        setCopied(false);
+        setShareFeedback(null);
+      }, 3000);
+    }
+  };
+
+  const handleShare = async () => {
+    const permalink = getPropertyPermalink();
+    const shareTitle = `${property.title} | Beno Properties`;
+    const shareText = `Explore "${property.title}" in ${property.location}, ${property.city} (${property.status}: ${formatPriceZAR(property.price, property.status)}). Ref: ${property.id}`;
+
+    // 1. Try Native Share Dialog first (supported on mobile & modern browsers)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: permalink,
+        });
+        setIsShared(true);
+        setShareFeedback("Shared successfully!");
+        setTimeout(() => {
+          setIsShared(false);
+          setShareFeedback(null);
+        }, 3000);
+        return;
+      } catch (err: any) {
+        // If user manually aborted or dismissed the share sheet, return gracefully
+        if (err?.name === "AbortError") {
+          return;
+        }
+        // Fallback to clipboard copy on failure
+      }
+    }
+
+    // 2. Fallback: Copy direct property permalink URL to clipboard
+    const success = await copyToClipboard(permalink);
+    if (success) {
+      setCopied(true);
+      setIsShared(true);
+      setShareFeedback("Direct property permalink copied to clipboard!");
+      setTimeout(() => {
+        setCopied(false);
+        setIsShared(false);
+        setShareFeedback(null);
+      }, 3000);
+    } else {
+      setShareFeedback("Permalink: " + permalink);
+      setTimeout(() => setShareFeedback(null), 4000);
+    }
   };
 
   const handleWhatsAppShare = () => {
-    const url = `${window.location.origin}${window.location.pathname}?property=${property.id}`;
+    const url = getPropertyPermalink();
     const text = `Check out this exquisite property on Beno Properties: *${property.title}* in ${property.location}, ${property.city}!\n\nView details here: ${url}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleFacebookShare = () => {
+    const url = getPropertyPermalink();
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "width=600,height=400");
+  };
+
+  const handleTwitterShare = () => {
+    const url = getPropertyPermalink();
+    const text = `Check out ${property.title} in ${property.location} on Beno Properties:`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank", "width=600,height=400");
+  };
+
+  const handleLinkedInShare = () => {
+    const url = getPropertyPermalink();
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, "_blank", "width=600,height=400");
+  };
+
+  const handleEmailShare = () => {
+    const url = getPropertyPermalink();
+    const subject = `Property Recommendation: ${property.title} (Ref: ${property.id})`;
+    const body = `Hi,\n\nI thought you might be interested in this property on Beno Properties:\n\n${property.title}\nLocation: ${property.location}, ${property.city}\nPrice: ${formatPriceZAR(property.price, property.status)}\nReference: ${property.id}\n\nView full details, photos, and virtual tours here:\n${url}\n\nRegards`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
   // Form States
@@ -109,46 +202,86 @@ export default function PropertyDetailsModal({
           <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/30" />
 
           {/* Top action buttons */}
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <div className="absolute top-4 right-4 z-10 flex flex-wrap items-center gap-2">
+            {/* Primary Share Button (Native dialog or permalink clipboard copy) */}
+            <button
+              id="property-share-btn"
+              onClick={handleShare}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-md flex items-center gap-1.5 active:scale-95 ${
+                isShared
+                  ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 scale-105"
+                  : "bg-white/95 hover:bg-brand-primary hover:text-white text-gray-800 border-gray-200"
+              }`}
+              title="Share property via native share dialog or copy direct permalink"
+            >
+              {isShared ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-slate-950 stroke-[3]" />
+                  <span>{shareFeedback?.includes("copied") ? "Link Copied!" : "Shared!"}</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="h-3.5 w-3.5 text-brand-primary" />
+                  <span>Share</span>
+                </>
+              )}
+            </button>
+
+            {/* Direct WhatsApp Share Shortcut */}
             <button
               id="whatsapp-share-btn"
               onClick={handleWhatsAppShare}
-              className="px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600"
-              title="Share to WhatsApp"
+              className="px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 active:scale-95"
+              title="Share directly to WhatsApp"
             >
               <MessageCircle className="h-3.5 w-3.5 fill-current text-white" />
-              <span>Share to WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </button>
+
+            {/* Direct Copy Link Button */}
             <button
               id="copy-link-btn"
               onClick={handleCopyLink}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-sm flex items-center gap-1.5 active:scale-95 ${
                 copied 
-                  ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-400/40" 
                   : "bg-white/95 hover:bg-brand-primary hover:text-white text-gray-700 border-gray-200"
               }`}
-              title="Copy link to clipboard"
+              title="Copy direct permalink to clipboard"
             >
               {copied ? (
                 <>
-                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-100" />
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-600 fill-emerald-100" />
                   <span>Copied!</span>
                 </>
               ) : (
                 <>
                   <Link className="h-3.5 w-3.5" />
-                  <span>Copy Link</span>
+                  <span className="hidden sm:inline">Copy Link</span>
                 </>
               )}
             </button>
+
             <button
               id="close-details-btn"
               onClick={onClose}
               className="p-2 bg-white/80 hover:bg-brand-primary hover:text-white text-gray-700 rounded-full transition-all cursor-pointer border border-gray-200 shadow-sm"
+              title="Close Details Modal"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Feedback notification toast inside modal */}
+          {shareFeedback && (
+            <div
+              id="share-toast-notification"
+              className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-gray-900/95 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-2xl border border-gray-700 text-xs font-semibold flex items-center gap-2 max-w-[90%] text-center animate-fadeIn"
+            >
+              <CheckCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+              <span>{shareFeedback}</span>
+            </div>
+          )}
 
           {/* Title & Price overlay */}
           <div className="absolute bottom-4 left-6 right-6">
@@ -165,10 +298,10 @@ export default function PropertyDetailsModal({
         </div>
 
         {/* Tab Selection */}
-        <div className="flex border-b border-gray-250 bg-gray-50 px-6 pt-2" id="modal-tab-row">
+        <div className="flex border-b border-gray-250 bg-gray-50 px-6 pt-2 overflow-x-auto" id="modal-tab-row">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "overview"
                 ? "border-brand-primary text-brand-primary"
                 : "border-transparent text-gray-500 hover:text-gray-900"
@@ -177,8 +310,30 @@ export default function PropertyDetailsModal({
             Overview & Inquire
           </button>
           <button
+            onClick={() => setActiveTab("neighborhood")}
+            className={`px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "neighborhood"
+                ? "border-brand-primary text-brand-primary"
+                : "border-transparent text-gray-500 hover:text-gray-900"
+            }`}
+          >
+            <MapPin className="h-4 w-4 text-brand-primary" />
+            Neighborhood Guide (Google Maps)
+          </button>
+          <button
+            onClick={() => setActiveTab("market")}
+            className={`px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "market"
+                ? "border-brand-primary text-brand-primary"
+                : "border-transparent text-gray-500 hover:text-gray-900"
+            }`}
+          >
+            <TrendingUp className="h-4 w-4 text-emerald-600" />
+            Market Dynamics (Google Search)
+          </button>
+          <button
             onClick={() => setActiveTab("calculator")}
-            className={`px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "calculator"
                 ? "border-brand-primary text-brand-primary"
                 : "border-transparent text-gray-500 hover:text-gray-900"
@@ -246,6 +401,110 @@ export default function PropertyDetailsModal({
                   <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
                     {property.description}
                   </p>
+                </div>
+
+                {/* Share Listing & Direct Permalink Section */}
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 sm:p-5 space-y-3.5" id="property-share-section">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="h-4 w-4 text-brand-primary" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-gray-900">
+                        Share Property & Direct Permalink
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-mono">Ref: {property.id}</span>
+                  </div>
+
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Share this property with clients, friends, or across social media. Use the native share dialog or copy the direct permanent link.
+                  </p>
+
+                  {/* Direct Permalink Input & Copy Button */}
+                  <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl p-1.5 shadow-inner">
+                    <input
+                      type="text"
+                      readOnly
+                      value={getPropertyPermalink()}
+                      className="bg-transparent text-xs text-gray-600 px-2 py-1 flex-1 outline-none font-mono truncate select-all"
+                      title="Direct property permalink URL"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="px-3 py-1.5 bg-gray-100 hover:bg-brand-primary hover:text-white text-gray-700 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Copy URL</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Social Media & Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="px-4 py-2 bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      <span>{isShared ? "Shared!" : "Open Share Dialog"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppShare}
+                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Share to WhatsApp"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>WhatsApp</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleTwitterShare}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Share on X (Twitter)"
+                    >
+                      <span>X (Twitter)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleFacebookShare}
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Share on Facebook"
+                    >
+                      <span>Facebook</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleLinkedInShare}
+                      className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Share on LinkedIn"
+                    >
+                      <span>LinkedIn</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleEmailShare}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Share via Email"
+                    >
+                      <Mail className="h-3.5 w-3.5 text-gray-500" />
+                      <span>Email</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -367,6 +626,40 @@ export default function PropertyDetailsModal({
                   )}
                 </div>
               </div>
+            </div>
+          ) : activeTab === "neighborhood" ? (
+            <div className="space-y-4" id="modal-neighborhood-pane">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-150">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-brand-primary" />
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Neighborhood & Local Infrastructure
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Live Google Maps Grounding via gemini-3.5-flash for {property.location}, {property.city}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <NeighborhoodGuide location={property.location} propertyTitle={property.title} />
+            </div>
+          ) : activeTab === "market" ? (
+            <div className="space-y-4" id="modal-market-pane">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-150">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Market Dynamics & Price Growth
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Live Google Search Grounding via gemini-3.5-flash for {property.location}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <MarketIntelligence suburb={property.location} propertyType={property.type} />
             </div>
           ) : (
             <div className="space-y-4" id="modal-calculator-pane">

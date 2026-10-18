@@ -18,6 +18,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   onSnapshot,
   query,
@@ -34,6 +35,7 @@ import {
   Lead,
   TenantApplication,
   UserRole,
+  Agent,
 } from "./types";
 
 // Initialize Firebase App
@@ -140,6 +142,34 @@ export function getRoleForEmail(email: string | null | undefined): UserRole {
   return "client";
 }
 
+/**
+ * Recursively cleans objects and arrays to remove all undefined values.
+ * Firestore strictly throws errors when fields contain undefined.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === "object") {
+    if (data instanceof Date) {
+      return data;
+    }
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (val !== undefined) {
+        cleaned[key] = sanitizeForFirestore(val);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
 // Sync or fetch user profile from Firestore
 export async function syncOrCreateUserProfile(
   fbUser: FirebaseUser,
@@ -157,18 +187,21 @@ export async function syncOrCreateUserProfile(
         id: fbUser.uid,
         email: fbUser.email || data.email,
         name: data.name || fbUser.displayName || "User",
+        phone: data.phone || fbUser.phoneNumber || "",
       };
     } else {
       const defaultRole = getRoleForEmail(fbUser.email);
       const role: UserRole = requestedRole && defaultRole !== "admin" ? requestedRole : defaultRole;
+      const approvalStatus = role === "admin" || role === "client" ? "approved" : "pending";
       const newUser: UserProfile = {
         id: fbUser.uid,
         name: fbUser.displayName || (fbUser.email ? fbUser.email.split("@")[0] : "Beno User"),
         email: fbUser.email || "",
-        phone: fbUser.phoneNumber || undefined,
+        phone: fbUser.phoneNumber || "",
+        imageUrl: fbUser.photoURL || "",
         role,
+        approvalStatus,
         favorites: [],
-        imageUrl: fbUser.photoURL || undefined,
         createdAt: new Date().toISOString(),
         ...(role === "agent"
           ? {
@@ -179,7 +212,7 @@ export async function syncOrCreateUserProfile(
           : {}),
       };
 
-      await setDoc(userDocRef, newUser);
+      await setDoc(userDocRef, sanitizeForFirestore(newUser));
       return newUser;
     }
   } catch (err) {
@@ -189,10 +222,25 @@ export async function syncOrCreateUserProfile(
 
 // Save or Update User Profile
 export async function updateUserProfileInFirestore(user: UserProfile): Promise<void> {
+  // Only attempt write if a Firebase authenticated user session is active
+  if (!auth.currentUser) {
+    return;
+  }
   const path = `users/${user.id}`;
   try {
     const userDocRef = doc(db, "users", user.id);
-    await setDoc(userDocRef, user, { merge: true });
+    const safeUser: UserProfile = {
+      ...user,
+      phone: user.phone || "",
+      bio: user.bio || "",
+      title: user.title || "",
+      imageUrl: user.imageUrl || "",
+      favorites: user.favorites || [],
+      approvalStatus: user.approvalStatus || (user.role === "agent" || user.role === "landlord" ? "pending" : "approved"),
+      approvalNotes: user.approvalNotes || "",
+      reviewedAt: user.reviewedAt || "",
+    };
+    await setDoc(userDocRef, sanitizeForFirestore(safeUser), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -200,10 +248,11 @@ export async function updateUserProfileInFirestore(user: UserProfile): Promise<v
 
 // Save Appointment to Firestore
 export async function saveAppointmentToFirestore(appointment: Appointment): Promise<void> {
+  if (!auth.currentUser) return;
   const path = `appointments/${appointment.id}`;
   try {
     const aptRef = doc(db, "appointments", appointment.id);
-    await setDoc(aptRef, appointment, { merge: true });
+    await setDoc(aptRef, sanitizeForFirestore(appointment), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -211,10 +260,11 @@ export async function saveAppointmentToFirestore(appointment: Appointment): Prom
 
 // Save Client Invitation to Firestore
 export async function saveClientInvitationToFirestore(invitation: ClientInvitation): Promise<void> {
+  if (!auth.currentUser) return;
   const path = `clientInvitations/${invitation.id}`;
   try {
     const invRef = doc(db, "clientInvitations", invitation.id);
-    await setDoc(invRef, invitation, { merge: true });
+    await setDoc(invRef, sanitizeForFirestore(invitation), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -225,7 +275,7 @@ export async function saveLeadToFirestore(lead: Lead): Promise<void> {
   const path = `leads/${lead.id}`;
   try {
     const leadRef = doc(db, "leads", lead.id);
-    await setDoc(leadRef, lead, { merge: true });
+    await setDoc(leadRef, sanitizeForFirestore(lead), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -233,10 +283,11 @@ export async function saveLeadToFirestore(lead: Lead): Promise<void> {
 
 // Save Property Listing to Firestore
 export async function savePropertyToFirestore(property: Property): Promise<void> {
+  if (!auth.currentUser) return;
   const path = `properties/${property.id}`;
   try {
     const propRef = doc(db, "properties", property.id);
-    await setDoc(propRef, property, { merge: true });
+    await setDoc(propRef, sanitizeForFirestore(property), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -244,10 +295,11 @@ export async function savePropertyToFirestore(property: Property): Promise<void>
 
 // Save Tenant Application to Firestore
 export async function saveTenantApplicationToFirestore(appData: TenantApplication): Promise<void> {
+  if (!auth.currentUser) return;
   const path = `tenantApplications/${appData.id}`;
   try {
     const appRef = doc(db, "tenantApplications", appData.id);
-    await setDoc(appRef, appData, { merge: true });
+    await setDoc(appRef, sanitizeForFirestore(appData), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
@@ -341,5 +393,83 @@ export function subscribeToLeads(
     return unsubscribe;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
+  }
+}
+
+// Save or Update Agent
+export async function saveAgentToFirestore(agent: Agent): Promise<void> {
+  // Only attempt write if a Firebase authenticated user session is active
+  if (!auth.currentUser) {
+    return;
+  }
+  const agentPath = `agents/${agent.id}`;
+  try {
+    const agentRef = doc(db, "agents", agent.id);
+    await setDoc(agentRef, sanitizeForFirestore(agent), { merge: true });
+
+    // Also mirror to users collection so the agent has a complete UserProfile
+    const userRef = doc(db, "users", agent.id);
+    const agentUserProfile: UserProfile = {
+      id: agent.id,
+      name: agent.name,
+      email: agent.email,
+      phone: agent.phone || "",
+      role: "agent",
+      approvalStatus: agent.approvalStatus || "approved",
+      approvalNotes: agent.approvalNotes || "",
+      reviewedAt: agent.reviewedAt || "",
+      title: agent.title,
+      bio: agent.bio,
+      specialization: agent.specialization,
+      imageUrl: agent.imageUrl,
+      favorites: [],
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(userRef, sanitizeForFirestore(agentUserProfile), { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, agentPath);
+  }
+}
+
+// Delete Agent
+export async function deleteAgentFromFirestore(agentId: string): Promise<void> {
+  // Only attempt delete if a Firebase authenticated user session is active
+  if (!auth.currentUser) {
+    return;
+  }
+  const agentPath = `agents/${agentId}`;
+  try {
+    const agentRef = doc(db, "agents", agentId);
+    await deleteDoc(agentRef);
+
+    const userRef = doc(db, "users", agentId);
+    await deleteDoc(userRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, agentPath);
+  }
+}
+
+// Subscribe to Agents
+export function subscribeToAgents(onUpdate: (agents: Agent[]) => void) {
+  const path = "agents";
+  try {
+    const colRef = collection(db, "agents");
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const list: Agent[] = [];
+        snapshot.forEach((d) => list.push(d.data() as Agent));
+        if (list.length > 0) {
+          onUpdate(list);
+        }
+      },
+      (error) => {
+        console.warn("Agents subscription listener notice:", error);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn("Could not start agents realtime subscription:", err);
+    return () => {};
   }
 }

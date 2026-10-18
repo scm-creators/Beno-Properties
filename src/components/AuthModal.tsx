@@ -4,8 +4,8 @@
  */
 
 import React, { useState } from "react";
-import { X, Lock, Mail, User, Phone, Briefcase, Key, Shield, UserCheck, AlertCircle, Loader2 } from "lucide-react";
-import { UserProfile, UserRole } from "../types";
+import { X, Lock, Mail, User, Phone, Briefcase, Key, Shield, UserCheck, AlertCircle, Loader2, ShieldAlert, Clock } from "lucide-react";
+import { UserProfile, UserRole, ApprovalStatus } from "../types";
 import BenoLogo from "./BenoLogo";
 import { signInWithGoogle, updateUserProfileInFirestore } from "../firebase";
 
@@ -114,19 +114,25 @@ export default function AuthModal({
 
     const newUserId = regRole === "agent" 
       ? `BENO-AGT-${Math.floor(100 + Math.random() * 900)}`
+      : regRole === "landlord"
+      ? `BENO-LL-${Math.floor(100 + Math.random() * 900)}`
       : `BENO-USR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const approvalStatus: ApprovalStatus = 
+      regRole === "agent" || regRole === "landlord" ? "pending" : "approved";
 
     const newUser: UserProfile = {
       id: newUserId,
       name: regName,
       email: regEmail,
-      phone: regPhone || undefined,
+      phone: regPhone || "",
       role: regRole,
+      approvalStatus,
       favorites: [],
-      bio: regRole === "agent" ? regBio || "Experienced real estate area specialist." : undefined,
-      title: regRole === "agent" ? regTitle || "Associate Property Consultant" : undefined,
-      specialization: regRole === "agent" ? ["Residential Sales", "Valuations"] : undefined,
-      imageUrl: regRole === "agent" ? "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80" : undefined,
+      bio: regRole === "agent" ? (regBio || "Experienced real estate area specialist.") : "",
+      title: regRole === "agent" ? (regTitle || "Associate Property Consultant") : "",
+      specialization: regRole === "agent" ? ["Residential Sales", "Valuations"] : [],
+      imageUrl: regRole === "agent" ? "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80" : "",
       createdAt: new Date().toISOString(),
     };
 
@@ -137,29 +143,38 @@ export default function AuthModal({
     }
 
     onRegisterUser(newUser);
-    setSuccess("Registration successful! Logging you in...");
+    
+    if (regRole === "agent" || regRole === "landlord") {
+      setSuccess(`Application submitted! Your ${regRole === "agent" ? "Agent" : "Landlord"} account is awaiting administrator review and approval. Logging you in to view status...`);
+    } else {
+      setSuccess("Registration successful! Logging you in...");
+    }
     
     setTimeout(() => {
       onLoginSuccess(newUser);
       onClose();
-    }, 800);
+    }, 1200);
   };
 
-  const triggerDemoLogin = (role: UserRole, email: string) => {
+  const triggerDemoLogin = (role: UserRole, email: string, forcedStatus?: ApprovalStatus) => {
     setError(null);
     const matched = existingUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (matched) {
-      setSuccess(`Logged in as ${matched.name} (${matched.role.toUpperCase()})`);
+      const userToLogin = forcedStatus ? { ...matched, approvalStatus: forcedStatus } : matched;
+      setSuccess(`Logged in as ${userToLogin.name} (${userToLogin.role.toUpperCase()})`);
       setTimeout(() => {
-        onLoginSuccess(matched);
+        onLoginSuccess(userToLogin);
         onClose();
       }, 500);
     } else {
+      const approvalStatus: ApprovalStatus = forcedStatus || (role === "agent" || role === "landlord" ? "pending" : "approved");
       const demoUser: UserProfile = {
-        id: role === "admin" ? "BENO-ADM-001" : role === "agent" ? "BENO-AGT-1" : role === "landlord" ? "BENO-LL-1" : "BENO-USR-999",
-        name: role === "admin" ? "Beno Admin" : role === "agent" ? "David Beno" : role === "landlord" ? "Thabo Landlord" : "Sipho Khumalo",
+        id: role === "admin" ? "BENO-ADM-001" : role === "agent" ? (forcedStatus === "pending" ? "BENO-AGT-PEND" : "BENO-AGT-1") : role === "landlord" ? (forcedStatus === "pending" ? "BENO-LL-PEND" : "BENO-LL-1") : "BENO-USR-999",
+        name: role === "admin" ? "Beno Admin" : role === "agent" ? (forcedStatus === "pending" ? "Kagiso Mokoena" : "David Beno") : role === "landlord" ? (forcedStatus === "pending" ? "Nomsa Dlamini" : "Thabo Landlord") : "Sipho Khumalo",
         email: email,
+        phone: "+27 (0) 82 555 0100",
         role: role,
+        approvalStatus,
         favorites: [],
         createdAt: new Date().toISOString()
       };
@@ -420,6 +435,19 @@ export default function AuthModal({
                     Landlord
                   </button>
                 </div>
+
+                {/* Regulatory compliance notice for Agents & Landlords */}
+                {(regRole === "agent" || regRole === "landlord") && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1 mt-2.5">
+                    <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[11px] uppercase tracking-wide">
+                      <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                      Administrator Approval Required
+                    </div>
+                    <p className="text-[10px] text-amber-700 leading-relaxed">
+                      In compliance with South African Property Practitioners Regulatory Authority (PPRA) standards, new {regRole === "agent" ? "Agent" : "Landlord"} accounts require administrator review and approval before full platform capabilities are unlocked.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {regRole === "agent" && (
@@ -467,40 +495,54 @@ export default function AuthModal({
                 className="w-full py-3 bg-brand-primary hover:bg-brand-hover text-white font-extrabold rounded-full text-xs uppercase tracking-wider cursor-pointer shadow-sm transition-all flex items-center justify-center gap-1.5"
               >
                 <Briefcase className="h-4 w-4" />
-                Register & Sign In
+                Register & Submit for Approval
               </button>
             </form>
           )}
 
           {/* Quick Demo Login Section */}
           <div className="pt-3 border-t border-gray-150">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 text-center">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">
               Quick Role Switcher & Demo Accounts
             </h4>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <button
-                onClick={() => triggerDemoLogin("client", "sipho@gmail.com")}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                onClick={() => triggerDemoLogin("client", "sipho@gmail.com", "approved")}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
               >
                 👤 Sipho (Client)
               </button>
               <button
-                onClick={() => triggerDemoLogin("agent", "david@benoproperties.co.za")}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                onClick={() => triggerDemoLogin("agent", "david@benoproperties.co.za", "approved")}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
               >
                 👔 David (Agent)
               </button>
               <button
-                onClick={() => triggerDemoLogin("admin", "admin@benoproperties.co.za")}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                onClick={() => triggerDemoLogin("landlord", "landlord@benoproperties.co.za", "approved")}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+              >
+                🏡 Thabo (Landlord)
+              </button>
+              <button
+                onClick={() => triggerDemoLogin("admin", "admin@benoproperties.co.za", "approved")}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
               >
                 ⚙️ Agency Admin
               </button>
               <button
-                onClick={() => triggerDemoLogin("landlord", "landlord@benoproperties.co.za")}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-[10px] text-gray-700 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                onClick={() => triggerDemoLogin("agent", "kagiso@benoproperties.co.za", "pending")}
+                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-[10px] text-amber-800 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                title="Test Pending Agent Experience"
               >
-                🏡 Thabo (Landlord)
+                ⏳ Kagiso (Pending Agent)
+              </button>
+              <button
+                onClick={() => triggerDemoLogin("landlord", "nomsa@landlord.co.za", "pending")}
+                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-[10px] text-amber-800 font-bold uppercase rounded-lg cursor-pointer transition-colors text-center truncate"
+                title="Test Pending Landlord Experience"
+              >
+                ⏳ Nomsa (Pending LL)
               </button>
             </div>
           </div>

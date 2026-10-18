@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { BedDouble, Bath, Car, Maximize2, Tag, ArrowUpRight, Heart } from "lucide-react";
+import { BedDouble, Bath, Car, Maximize2, Tag, ArrowUpRight, Heart, Scale, Check } from "lucide-react";
 import { Property } from "../types";
 
 interface PropertyCardProps {
@@ -13,6 +13,8 @@ interface PropertyCardProps {
   key?: string | number;
   isFavorited?: boolean;
   onToggleFavorite?: (propertyId: string) => void;
+  isCompared?: boolean;
+  onToggleCompare?: (propertyId: string) => void;
 }
 
 export const formatPriceZAR = (price: number, status: string = "For Sale") => {
@@ -30,6 +32,8 @@ export default function PropertyCard({
   onViewDetails,
   isFavorited = false,
   onToggleFavorite,
+  isCompared = false,
+  onToggleCompare,
 }: PropertyCardProps) {
   return (
     <div
@@ -70,6 +74,26 @@ export default function PropertyCard({
         <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded text-[10px] font-mono text-brand-primary font-bold border border-gray-200 shadow-sm">
           REF: {property.id}
         </div>
+
+        {/* Compare Button */}
+        {onToggleCompare && (
+          <button
+            id={`compare-badge-btn-${property.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCompare(property.id);
+            }}
+            className={`absolute bottom-3 right-12 z-10 px-2.5 py-1.5 rounded-full backdrop-blur-sm shadow-md border cursor-pointer transition-all duration-300 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
+              isCompared
+                ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 scale-105"
+                : "bg-white/90 text-gray-600 border-gray-200 hover:text-brand-primary hover:bg-white hover:scale-105"
+            }`}
+            title={isCompared ? "Remove from comparison" : "Add to side-by-side comparison"}
+          >
+            <Scale className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{isCompared ? "Compared" : "Compare"}</span>
+          </button>
+        )}
 
         {/* Heart/Favorite Button */}
         {onToggleFavorite && (
@@ -157,14 +181,36 @@ export default function PropertyCard({
               </span>
             </div>
 
-            <button
-              id={`view-details-btn-${property.id}`}
-              onClick={() => onViewDetails(property)}
-              className="bg-gray-50 hover:bg-brand-primary text-gray-500 hover:text-white p-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center group/btn border border-gray-200 hover:border-brand-primary"
-              title="View Complete Property Details"
-            >
-              <ArrowUpRight className="h-4 w-4 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onToggleCompare && (
+                <button
+                  type="button"
+                  id={`footer-compare-btn-${property.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCompare(property.id);
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    isCompared
+                      ? "bg-amber-400 text-slate-950 border-amber-300 shadow-sm"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200 hover:text-brand-primary"
+                  }`}
+                  title={isCompared ? "Remove from comparison" : "Compare side-by-side"}
+                >
+                  <Scale className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{isCompared ? "Comparing" : "Compare"}</span>
+                </button>
+              )}
+
+              <button
+                id={`view-details-btn-${property.id}`}
+                onClick={() => onViewDetails(property)}
+                className="bg-gray-50 hover:bg-brand-primary text-gray-500 hover:text-white p-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center group/btn border border-gray-200 hover:border-brand-primary"
+                title="View Complete Property Details"
+              >
+                <ArrowUpRight className="h-4 w-4 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

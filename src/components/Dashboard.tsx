@@ -8,7 +8,8 @@ import {
   User, Heart, Bell, Plus, ShieldAlert, Sparkles, Inbox, 
   Trash2, Edit, Save, Check, CheckCircle, Upload, Image as ImageIcon,
   FolderOpen, UserPlus, FileText, ChevronRight, Filter, Search, Tag, Phone,
-  Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp, CalendarCheck, BarChart3
+  Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp, CalendarCheck, BarChart3,
+  UserCheck, ShieldCheck, Clock, XCircle, Flame, Mail
 } from "lucide-react";
 import { 
   UserProfile, Property, Lead, Agent, EmailAlertSubscription,
@@ -21,6 +22,10 @@ import TenantVetting from "./TenantVetting";
 import BondCalculator from "./BondCalculator";
 import AppointmentsManager from "./AppointmentsManager";
 import MonthlyReports from "./MonthlyReports";
+import AgentManager from "./AgentManager";
+import RegistrationApprovals from "./RegistrationApprovals";
+import PropertyDemandHeatmap from "./PropertyDemandHeatmap";
+import EmailTemplateManager, { QuickFollowUpModal } from "./EmailTemplateManager";
 import { useReminderSystem } from "../hooks/useReminderSystem";
 
 interface DashboardProps {
@@ -33,6 +38,13 @@ interface DashboardProps {
   leads: Lead[];
   onUpdateLead: (updatedLead: Lead) => void;
   agents: Agent[];
+  onAddAgent?: (agent: Agent) => void;
+  onUpdateAgent?: (agent: Agent) => void;
+  onDeleteAgent?: (id: string) => void;
+  users?: UserProfile[];
+  onApproveUser?: (userId: string) => void;
+  onRejectUser?: (userId: string, reason?: string) => void;
+  onRevertPendingUser?: (userId: string) => void;
   alertSubscriptions: EmailAlertSubscription[];
   onDeleteAlert: (id: string) => void;
   onAddAlert: (alert: EmailAlertSubscription) => void;
@@ -59,6 +71,13 @@ export default function Dashboard({
   leads,
   onUpdateLead,
   agents,
+  onAddAgent,
+  onUpdateAgent,
+  onDeleteAgent,
+  users = [],
+  onApproveUser,
+  onRejectUser,
+  onRevertPendingUser,
   alertSubscriptions,
   onDeleteAlert,
   onAddAlert,
@@ -74,6 +93,10 @@ export default function Dashboard({
   onUpdateInvitation,
   onDeleteInvitation,
 }: DashboardProps) {
+  const pendingApprovalsCount = (users || []).filter(
+    (u) => (u.role === "agent" || u.role === "landlord") && u.approvalStatus === "pending"
+  ).length;
+
   // Navigation tabs based on user role
   const getTabs = () => {
     switch (currentUser.role) {
@@ -86,8 +109,15 @@ export default function Dashboard({
           { id: "tools", label: "Tools", icon: Wrench },
         ];
       case "agent":
+        if (currentUser.approvalStatus === "pending" || currentUser.approvalStatus === "rejected") {
+          return [
+            { id: "agent-profile", label: "Agent Status & Profile", icon: User },
+          ];
+        }
         return [
           { id: "agent-profile", label: "Agent Profile", icon: User },
+          { id: "demand-heatmap", label: "Demand Heatmap", icon: Flame },
+          { id: "email-templates", label: "Email Templates", icon: Mail },
           { id: "appointments", label: "Appointments & Invites", icon: CalendarCheck },
           { id: "monthly-reports", label: "Monthly Reports", icon: BarChart3 },
           { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
@@ -96,6 +126,11 @@ export default function Dashboard({
           { id: "assigned-leads", label: "Assigned Leads", icon: UserPlus },
         ];
       case "landlord":
+        if (currentUser.approvalStatus === "pending" || currentUser.approvalStatus === "rejected") {
+          return [
+            { id: "landlord-profile", label: "Owner Status & Profile", icon: User },
+          ];
+        }
         return [
           { id: "landlord-profile", label: "Owner Profile", icon: User },
           { id: "tenant-vetting", label: "Landlord Portal", icon: FileText },
@@ -103,6 +138,10 @@ export default function Dashboard({
       case "admin":
         return [
           { id: "admin-profile", label: "Admin Profile", icon: User },
+          { id: "user-approvals", label: "Approvals", icon: ShieldCheck, badge: pendingApprovalsCount },
+          { id: "demand-heatmap", label: "Demand Heatmap", icon: Flame },
+          { id: "email-templates", label: "Email Templates", icon: Mail },
+          { id: "agents-manager", label: "Agent Roster", icon: UserCheck },
           { id: "appointments", label: "Appointments & Invites", icon: CalendarCheck },
           { id: "monthly-reports", label: "Monthly Reports", icon: BarChart3 },
           { id: "relationship-assistant", label: "Relationship Nudge", icon: Calendar },
@@ -117,6 +156,7 @@ export default function Dashboard({
 
   const tabs = getTabs();
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || "profile");
+  const [quickFollowUpLead, setQuickFollowUpLead] = useState<Lead | null>(null);
 
   // Integrated Client & Property Event Reminder System
   const reminderSystem = useReminderSystem(currentUser, leads, properties);
@@ -187,10 +227,10 @@ export default function Dashboard({
       ...currentUser,
       name: profileName,
       email: profileEmail,
-      phone: profilePhone || undefined,
-      bio: currentUser.role === "agent" ? profileBio : undefined,
-      title: currentUser.role === "agent" ? profileTitle : undefined,
-      imageUrl: currentUser.role === "agent" ? profileImgUrl : undefined,
+      phone: profilePhone || "",
+      bio: currentUser.role === "agent" ? (profileBio || "") : "",
+      title: currentUser.role === "agent" ? (profileTitle || "") : "",
+      imageUrl: currentUser.role === "agent" ? (profileImgUrl || "") : "",
     };
     onUpdateProfile(updated);
     setProfileSuccess(true);
@@ -441,18 +481,26 @@ export default function Dashboard({
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">My Desk Nav</span>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
+                const badgeCount = (tab as any).badge;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
                       activeTab === tab.id
                         ? "bg-brand-primary text-white font-bold"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
+                    <div className="flex items-center gap-2.5">
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                    </div>
+                    {badgeCount !== undefined && badgeCount > 0 && (
+                      <span className="px-1.5 py-0.2 bg-amber-400 text-slate-950 font-extrabold text-[10px] rounded-full animate-pulse">
+                        {badgeCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -462,6 +510,59 @@ export default function Dashboard({
 
         {/* Right Side: Tab Workspaces */}
         <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-sm" id="dashboard-workspace">
+          
+          {/* Status Alert for Pending Agent / Landlord */}
+          {currentUser.approvalStatus === "pending" && (
+            <div className="mb-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-white border border-amber-500/30 rounded-2xl space-y-3" id="pending-approval-banner">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center flex-shrink-0">
+                  <Clock className="h-5 w-5 animate-spin" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-bold text-amber-950 uppercase tracking-tight flex items-center gap-2">
+                    {currentUser.role === "agent" ? "Agent" : "Landlord"} Registration Pending Administrator Approval
+                  </h4>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Your profile was submitted on {new Date(currentUser.createdAt).toLocaleDateString()} and is currently under administrative compliance review.
+                  </p>
+                </div>
+              </div>
+              <div className="p-4 bg-white/90 rounded-xl border border-amber-200 text-xs text-amber-950 leading-relaxed space-y-1.5">
+                <p className="font-bold text-[11px] uppercase tracking-wide text-amber-900">Compliance & Regulatory Review</p>
+                <p className="text-gray-600 text-xs">
+                  In compliance with South African Property Practitioners Regulatory Authority (PPRA) requirements, all agent registrations and landlord portals must be reviewed by the principal administrator before full catalog publishing, client allocations, and vetting approvals can be initiated.
+                </p>
+                <p className="text-[11px] text-gray-500 pt-1">
+                  You can update your personal contact info and bio in the form below while your application is under review. Need priority activation? Contact <a href="mailto:admin@benoproperties.co.za" className="text-brand-primary underline font-medium">admin@benoproperties.co.za</a>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Status Alert for Rejected Agent / Landlord */}
+          {currentUser.approvalStatus === "rejected" && (
+            <div className="mb-6 p-5 sm:p-6 bg-rose-50 border border-rose-200 rounded-2xl space-y-3" id="rejected-approval-banner">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-bold text-rose-950 uppercase tracking-tight">
+                    Registration Application Declined
+                  </h4>
+                  <p className="text-xs text-rose-800 mt-0.5">
+                    Your registration as an {currentUser.role === "agent" ? "Agent" : "Landlord"} was reviewed and not approved at this time.
+                  </p>
+                </div>
+              </div>
+              {currentUser.approvalNotes && (
+                <div className="p-3.5 bg-white rounded-xl border border-rose-200 text-xs text-rose-900">
+                  <span className="font-bold text-[10px] uppercase text-rose-600 block mb-0.5">Administrator Review Feedback:</span>
+                  <p className="text-gray-700">{currentUser.approvalNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Real-time Background Client & Property Event Notifications */}
           {(currentUser.role === "agent" || currentUser.role === "admin") && reminderSystem.notifications.length > 0 && (
@@ -1529,13 +1630,23 @@ export default function Dashboard({
                                 <span className="text-[10px] text-gray-500 font-mono truncate max-w-[200px] sm:max-w-xs block" title={lead.notes}>
                                   <strong>Admin Notes:</strong> {lead.notes || "None. Click edit to add."}
                                 </span>
-                                <button
-                                  onClick={() => handleStartEditLead(lead)}
-                                  className="text-[9px] font-bold text-brand-primary hover:underline uppercase tracking-wider flex items-center cursor-pointer"
-                                >
-                                  <Edit className="h-3 w-3 mr-0.5" />
-                                  Edit Notes
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleStartEditLead(lead)}
+                                    className="text-[9px] font-bold text-brand-primary hover:underline uppercase tracking-wider flex items-center cursor-pointer"
+                                  >
+                                    <Edit className="h-3 w-3 mr-0.5" />
+                                    Edit Notes
+                                  </button>
+                                  <button
+                                    onClick={() => setQuickFollowUpLead(lead)}
+                                    className="px-2.5 py-1 bg-brand-primary text-white hover:bg-brand-hover rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                                    title="Follow up with client using saved email template"
+                                  >
+                                    <Mail className="h-3 w-3" />
+                                    Follow Up
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1545,6 +1656,61 @@ export default function Dashboard({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* DEMAND HEATMAP WORKSPACE */}
+          {activeTab === "demand-heatmap" && (
+            <div className="space-y-6" id="dashboard-demand-heatmap-pane">
+              <PropertyDemandHeatmap
+                properties={properties}
+                leads={leads}
+                appointments={appointments}
+                onSelectProperty={(prop) => onSelectPropertyDetails && onSelectPropertyDetails(prop.id)}
+              />
+            </div>
+          )}
+
+          {/* EMAIL TEMPLATES WORKSPACE */}
+          {activeTab === "email-templates" && (
+            <div className="space-y-6" id="dashboard-email-templates-pane">
+              <EmailTemplateManager
+                currentAgent={agents.find(a => a.email === currentUser.email) || agents[0]}
+                properties={properties}
+                leads={leads}
+              />
+            </div>
+          )}
+
+          {activeTab === "user-approvals" && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm" id="dashboard-approvals-pane">
+              <RegistrationApprovals
+                users={users}
+                onApproveUser={onApproveUser || (() => {})}
+                onRejectUser={onRejectUser || (() => {})}
+                onRevertPendingUser={onRevertPendingUser || (() => {})}
+              />
+            </div>
+          )}
+
+          {activeTab === "agents-manager" && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm" id="dashboard-agents-manager-pane">
+              <div className="mb-6 border-b border-gray-100 pb-4">
+                <h3 className="text-xl font-bold text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-brand-primary" />
+                  Agency Team & Agent Management
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Add, update, or remove agents representing Beno Properties across Gauteng.
+                </p>
+              </div>
+              <AgentManager
+                agents={agents}
+                properties={properties}
+                onAddAgent={onAddAgent || (() => {})}
+                onUpdateAgent={onUpdateAgent || (() => {})}
+                onDeleteAgent={onDeleteAgent || (() => {})}
+              />
             </div>
           )}
 
@@ -1747,6 +1913,22 @@ export default function Dashboard({
 
         </div>
       </div>
+
+      {/* Quick Follow-Up Modal using Email Templates */}
+      {quickFollowUpLead && (
+        <QuickFollowUpModal
+          lead={quickFollowUpLead}
+          properties={properties}
+          agents={agents}
+          onClose={() => setQuickFollowUpLead(null)}
+          onMarkContacted={(leadId) => {
+            const tgt = leads.find(l => l.id === leadId);
+            if (tgt && onUpdateLead) {
+              onUpdateLead({ ...tgt, status: "Contacted" });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

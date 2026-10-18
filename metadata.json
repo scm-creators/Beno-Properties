@@ -1,5 +1,5 @@
 {
-  "name": "Beno Properties(SA)",
+  "name": "Beno Properties",
   "description": "A luxury South African real estate platform featuring Gauteng property catalogs, role-based client & agent portals, VIP client invitation hub, appointment & viewing scheduling suite, and monthly tracking performance reports.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

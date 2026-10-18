@@ -36,7 +36,11 @@ export interface Property {
   purchase_date?: string; // YYYY-MM-DD (nullable)
   lease_start_date?: string; // YYYY-MM-DD (nullable)
   lease_end_date?: string; // YYYY-MM-DD (nullable)
+  features?: string[];
+  amenities?: string[];
 }
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface Agent {
   id: string;
@@ -47,6 +51,9 @@ export interface Agent {
   imageUrl: string;
   specialization: string[];
   bio: string;
+  approvalStatus?: ApprovalStatus;
+  approvalNotes?: string;
+  reviewedAt?: string;
 }
 
 export interface ListPropertySubmission {
@@ -127,6 +134,9 @@ export interface UserProfile {
   email: string;
   phone?: string;
   role: UserRole;
+  approvalStatus?: ApprovalStatus; // "pending" | "approved" | "rejected"
+  approvalNotes?: string;
+  reviewedAt?: string;
   favorites: string[]; // List of Property IDs
   bio?: string; // For agents
   title?: string; // For agents, e.g., "Gauteng Specialist"
@@ -377,5 +387,40 @@ export interface Appointment {
   reminderSent?: boolean;
   createdAt: string;
   updatedAt?: string;
+}
+
+// Email Template Management
+export interface EmailTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category: "Inquiry Follow-up" | "Viewing" | "Price Alert" | "Offer & Closing" | "Tenant Vetting" | "General";
+  subject: string;
+  body: string;
+  placeholders: string[]; // e.g. ["{client_name}", "{property_name}"]
+  isDefault?: boolean;
+  createdByAgentId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Suburb Demand & Inquiry Density Data
+export interface SuburbDemandData {
+  id: string;
+  suburb: string;
+  region: "Johannesburg North" | "Sandton & Rivonia" | "Midrand & Centurion" | "Pretoria & Tshwane" | "East Rand" | "West Rand & Soweto";
+  inquiryCount: number;
+  viewingCount: number;
+  averageBudget: number; // in ZAR
+  demandScore: number; // 0 - 100
+  intensityLevel: "Very High" | "High" | "Moderate" | "Emerging";
+  topPropertyType: string;
+  primaryPurpose: "Buying" | "Renting" | "Balanced";
+  growthRatePct: number; // e.g. +34%
+  keyDemandDrivers: string[];
+  activePropertiesCount: number;
+  latitude: number;
+  longitude: number;
+  coordinates: { x: number; y: number }; // Relative coordinates for interactive SVG map
 }
 

@@ -18,6 +18,7 @@ import {
   Lead,
   Appointment,
   ClientInvitation,
+  ApprovalStatus,
 } from "./types";
 import Navbar from "./components/Navbar";
 import SearchEngine from "./components/SearchEngine";
@@ -34,8 +35,10 @@ import Dashboard from "./components/Dashboard";
 import BenoLogo from "./components/BenoLogo";
 import Helmet from "./components/Helmet";
 import Sitemap from "./components/Sitemap";
+import BenoIntelligenceHub from "./components/BenoIntelligenceHub";
+import PropertyComparisonModal from "./components/PropertyComparisonModal";
 import { AnimatePresence } from "motion/react";
-import { Building2, Landmark, RefreshCw, Star, SlidersHorizontal, AlertCircle, HelpCircle, ShieldCheck, History } from "lucide-react";
+import { Building2, Landmark, RefreshCw, Star, SlidersHorizontal, AlertCircle, HelpCircle, ShieldCheck, History, Scale, X } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   auth,
@@ -47,6 +50,8 @@ import {
   saveClientInvitationToFirestore,
   saveLeadToFirestore,
   savePropertyToFirestore,
+  saveAgentToFirestore,
+  deleteAgentFromFirestore,
   subscribeToAppointments,
   subscribeToClientInvitations,
   subscribeToLeads,
@@ -57,7 +62,9 @@ const INITIAL_USERS: UserProfile[] = [
     id: "BENO-USR-1",
     name: "Sipho Khumalo",
     email: "sipho@gmail.com",
+    phone: "072 555 1234",
     role: "client",
+    approvalStatus: "approved",
     favorites: ["BENO-1024"],
     createdAt: "2026-06-25T14:15:00-07:00"
   },
@@ -65,7 +72,9 @@ const INITIAL_USERS: UserProfile[] = [
     id: "BENO-AGT-1",
     name: "David Beno",
     email: "david@benoproperties.co.za",
+    phone: "+27 (0) 82 555 0192",
     role: "agent",
+    approvalStatus: "approved",
     favorites: [],
     title: "Principal Agent & Founder",
     specialization: ["Luxury Sales", "Estate Portfolios", "Investment Advisory"],
@@ -77,7 +86,9 @@ const INITIAL_USERS: UserProfile[] = [
     id: "BENO-AGT-2",
     name: "Lungile Khumalo",
     email: "lungile@benoproperties.co.za",
+    phone: "+27 (0) 73 555 0284",
     role: "agent",
+    approvalStatus: "approved",
     favorites: [],
     title: "Senior Residential Specialist",
     specialization: ["Gauteng North Sales", "Family Townhouses", "New Developments"],
@@ -89,7 +100,9 @@ const INITIAL_USERS: UserProfile[] = [
     id: "BENO-AGT-3",
     name: "Zama Ndlovu",
     email: "zama@benoproperties.co.za",
+    phone: "+27 (0) 84 555 0739",
     role: "agent",
+    approvalStatus: "approved",
     favorites: [],
     title: "Executive Rentals Manager",
     specialization: ["Corporate Rentals", "Tenant Vetting"],
@@ -101,9 +114,45 @@ const INITIAL_USERS: UserProfile[] = [
     id: "BENO-ADM-1",
     name: "Beno Admin",
     email: "admin@benoproperties.co.za",
+    phone: "+27 (0) 81 555 0413",
     role: "admin",
+    approvalStatus: "approved",
     favorites: [],
     createdAt: "2026-06-15T10:00:00-07:00"
+  },
+  {
+    id: "BENO-LL-1",
+    name: "Thabo Landlord",
+    email: "landlord@benoproperties.co.za",
+    phone: "+27 (0) 83 555 0891",
+    role: "landlord",
+    approvalStatus: "approved",
+    favorites: [],
+    createdAt: "2026-06-20T09:30:00-07:00"
+  },
+  {
+    id: "BENO-AGT-PEND",
+    name: "Kagiso Mokoena",
+    email: "kagiso@benoproperties.co.za",
+    phone: "+27 (0) 79 555 0312",
+    role: "agent",
+    approvalStatus: "pending",
+    favorites: [],
+    title: "Candidate Property Practitioner",
+    specialization: ["Midrand & Centurion", "Commercial Offices"],
+    bio: "Candidate real estate agent completing PPRA logbook with high enthusiasm for Gauteng industrial and commercial developments.",
+    imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
+    createdAt: "2026-10-10T08:00:00-07:00"
+  },
+  {
+    id: "BENO-LL-PEND",
+    name: "Nomsa Dlamini",
+    email: "nomsa@landlord.co.za",
+    phone: "+27 (0) 82 555 0744",
+    role: "landlord",
+    approvalStatus: "pending",
+    favorites: [],
+    createdAt: "2026-10-12T11:45:00-07:00"
   }
 ];
 
@@ -221,6 +270,72 @@ export default function App() {
     .map((id) => properties.find((p) => p.id === id))
     .filter((p): p is Property => !!p);
 
+  // Property Comparison State (Side-by-side modal)
+  const [comparedPropertyIds, setComparedPropertyIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("beno_compared_properties");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState<boolean>(false);
+  const [comparisonToast, setComparisonToast] = useState<string | null>(null);
+
+  const showComparisonToast = (msg: string) => {
+    setComparisonToast(msg);
+    setTimeout(() => setComparisonToast(null), 3000);
+  };
+
+  const handleToggleCompare = (propertyId: string) => {
+    setComparedPropertyIds((prev) => {
+      let updated: string[];
+      if (prev.includes(propertyId)) {
+        updated = prev.filter((id) => id !== propertyId);
+        showComparisonToast("Property removed from comparison.");
+      } else {
+        if (prev.length >= 4) {
+          showComparisonToast("You can compare up to 4 properties at a time.");
+          return prev;
+        }
+        updated = [...prev, propertyId];
+        showComparisonToast("Added to comparison shortlist!");
+      }
+      try {
+        localStorage.setItem("beno_compared_properties", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleRemoveFromCompare = (propertyId: string) => {
+    setComparedPropertyIds((prev) => {
+      const updated = prev.filter((id) => id !== propertyId);
+      try {
+        localStorage.setItem("beno_compared_properties", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleAddPropertyToCompare = (property: Property) => {
+    setComparedPropertyIds((prev) => {
+      if (prev.includes(property.id) || prev.length >= 4) return prev;
+      const updated = [...prev, property.id];
+      try {
+        localStorage.setItem("beno_compared_properties", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleClearAllCompare = () => {
+    setComparedPropertyIds([]);
+    try {
+      localStorage.removeItem("beno_compared_properties");
+    } catch (e) {}
+  };
+
   // Global search filters
   const [filters, setFilters] = useState<SearchFilters>({
     location: "",
@@ -271,7 +386,7 @@ export default function App() {
       localStorage.setItem("beno_users", JSON.stringify(INITIAL_USERS));
     }
 
-    // Combine INITIAL_AGENTS with registered users of role "agent"
+    // Combine cached agents / INITIAL_AGENTS with registered users of role "agent"
     let deletedAgentIds: string[] = [];
     try {
       const storedDeleted = localStorage.getItem("beno_deleted_agents");
@@ -280,7 +395,18 @@ export default function App() {
       }
     } catch (e) {}
 
-    const computedAgents = INITIAL_AGENTS.filter(a => !deletedAgentIds.includes(a.id));
+    let baseAgents: Agent[] = INITIAL_AGENTS;
+    const storedAgents = localStorage.getItem("beno_agents");
+    if (storedAgents) {
+      try {
+        const parsed = JSON.parse(storedAgents);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          baseAgents = parsed;
+        }
+      } catch (e) {}
+    }
+
+    const computedAgents = baseAgents.filter(a => !deletedAgentIds.includes(a.id));
     finalUsers.filter(u => u.role === "agent" && !deletedAgentIds.includes(u.id)).forEach(au => {
       if (!computedAgents.some(a => a.id === au.id)) {
         computedAgents.push({
@@ -306,6 +432,7 @@ export default function App() {
       }
     });
     setAgents(uniqueComputedAgents);
+    localStorage.setItem("beno_agents", JSON.stringify(uniqueComputedAgents));
 
     // 3. Current User Session
     const storedCurrentUser = localStorage.getItem("beno_current_user");
@@ -911,6 +1038,234 @@ export default function App() {
     }
   };
 
+  // Agent Management Callbacks
+  const handleAddAgent = (newAgent: Agent) => {
+    const updated = [newAgent, ...agents.filter((a) => a.id !== newAgent.id)];
+    setAgents(updated);
+    localStorage.setItem("beno_agents", JSON.stringify(updated));
+
+    // Remove from deleted list if present
+    try {
+      const storedDeleted = localStorage.getItem("beno_deleted_agents");
+      if (storedDeleted) {
+        const deletedIds: string[] = JSON.parse(storedDeleted);
+        const filtered = deletedIds.filter((id) => id !== newAgent.id);
+        localStorage.setItem("beno_deleted_agents", JSON.stringify(filtered));
+      }
+    } catch (e) {}
+
+    // Mirror to existingUsers if not already present
+    const existingIndex = existingUsers.findIndex(
+      (u) => u.id === newAgent.id || u.email.toLowerCase() === newAgent.email.toLowerCase()
+    );
+    if (existingIndex === -1) {
+      const newUserFromAgent: UserProfile = {
+        id: newAgent.id,
+        name: newAgent.name,
+        email: newAgent.email,
+        phone: newAgent.phone || "",
+        role: "agent",
+        title: newAgent.title,
+        imageUrl: newAgent.imageUrl,
+        specialization: newAgent.specialization,
+        bio: newAgent.bio,
+        favorites: [],
+        createdAt: new Date().toISOString(),
+      };
+      const updatedUsers = [newUserFromAgent, ...existingUsers];
+      setExistingUsers(updatedUsers);
+      localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+      updateUserProfileInFirestore(newUserFromAgent).catch(console.warn);
+    }
+
+    saveAgentToFirestore(newAgent).catch((e) => {
+      console.warn("Could not sync agent to Firestore:", e);
+    });
+  };
+
+  const handleUpdateAgent = (updatedAgent: Agent) => {
+    const updated = agents.map((a) => (a.id === updatedAgent.id ? updatedAgent : a));
+    setAgents(updated);
+    localStorage.setItem("beno_agents", JSON.stringify(updated));
+
+    // Mirror to existing users
+    const matchingUser = existingUsers.find(
+      (u) => u.id === updatedAgent.id || u.email.toLowerCase() === updatedAgent.email.toLowerCase()
+    );
+    if (matchingUser) {
+      const updatedUser: UserProfile = {
+        ...matchingUser,
+        name: updatedAgent.name,
+        email: updatedAgent.email,
+        phone: updatedAgent.phone || "",
+        title: updatedAgent.title,
+        imageUrl: updatedAgent.imageUrl,
+        specialization: updatedAgent.specialization,
+        bio: updatedAgent.bio,
+      };
+      const updatedUsers = existingUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      setExistingUsers(updatedUsers);
+      localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+      if (currentUser && currentUser.id === updatedUser.id) {
+        setCurrentUser(updatedUser);
+        localStorage.setItem("beno_current_user", JSON.stringify(updatedUser));
+      }
+      updateUserProfileInFirestore(updatedUser).catch(console.warn);
+    }
+
+    saveAgentToFirestore(updatedAgent).catch((e) => {
+      console.warn("Could not sync agent update to Firestore:", e);
+    });
+  };
+
+  const handleDeleteAgent = (id: string) => {
+    handleDeleteProfile(id);
+    deleteAgentFromFirestore(id).catch((e) => {
+      console.warn("Could not delete agent from Firestore:", e);
+    });
+  };
+
+  // User Registration Approval Handlers (Admin)
+  const handleApproveUser = (userId: string) => {
+    const updatedUsers = existingUsers.map((u) => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          approvalStatus: "approved" as ApprovalStatus,
+          reviewedAt: new Date().toISOString(),
+        };
+      }
+      return u;
+    });
+    setExistingUsers(updatedUsers);
+    localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+
+    const targetUser = updatedUsers.find((u) => u.id === userId);
+    if (targetUser) {
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(targetUser);
+        localStorage.setItem("beno_current_user", JSON.stringify(targetUser));
+      }
+
+      // If user is an agent, make sure they are in agents state as approved
+      if (targetUser.role === "agent") {
+        setAgents((prev) => {
+          const exists = prev.some((a) => a.id === targetUser.id);
+          let newAgentsList: Agent[];
+          if (exists) {
+            newAgentsList = prev.map((a) =>
+              a.id === targetUser.id ? { ...a, approvalStatus: "approved" as ApprovalStatus } : a
+            );
+          } else {
+            const newAgent: Agent = {
+              id: targetUser.id,
+              name: targetUser.name,
+              title: targetUser.title || "Associate Property Consultant",
+              phone: targetUser.phone || "+27 (0) 82 555 0100",
+              email: targetUser.email,
+              imageUrl: targetUser.imageUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+              specialization: targetUser.specialization || ["Residential Sales"],
+              bio: targetUser.bio || "Registered Beno real estate professional.",
+              approvalStatus: "approved",
+            };
+            newAgentsList = [newAgent, ...prev];
+          }
+          localStorage.setItem("beno_agents", JSON.stringify(newAgentsList));
+          return newAgentsList;
+        });
+
+        const agentObj: Agent = {
+          id: targetUser.id,
+          name: targetUser.name,
+          title: targetUser.title || "Associate Property Consultant",
+          phone: targetUser.phone || "+27 (0) 82 555 0100",
+          email: targetUser.email,
+          imageUrl: targetUser.imageUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+          specialization: targetUser.specialization || ["Residential Sales"],
+          bio: targetUser.bio || "Registered Beno real estate professional.",
+          approvalStatus: "approved",
+        };
+        saveAgentToFirestore(agentObj).catch(console.warn);
+      }
+
+      updateUserProfileInFirestore(targetUser).catch((e) => {
+        console.warn("Could not sync user approval to Firestore:", e);
+      });
+    }
+  };
+
+  const handleRejectUser = (userId: string, reason?: string) => {
+    const updatedUsers = existingUsers.map((u) => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          approvalStatus: "rejected" as ApprovalStatus,
+          approvalNotes: reason || "Does not meet current verification standards.",
+          reviewedAt: new Date().toISOString(),
+        };
+      }
+      return u;
+    });
+    setExistingUsers(updatedUsers);
+    localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+
+    const targetUser = updatedUsers.find((u) => u.id === userId);
+    if (targetUser) {
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(targetUser);
+        localStorage.setItem("beno_current_user", JSON.stringify(targetUser));
+      }
+
+      if (targetUser.role === "agent") {
+        setAgents((prev) => {
+          const updated = prev.map((a) =>
+            a.id === targetUser.id ? { ...a, approvalStatus: "rejected" as ApprovalStatus } : a
+          );
+          localStorage.setItem("beno_agents", JSON.stringify(updated));
+          return updated;
+        });
+      }
+
+      updateUserProfileInFirestore(targetUser).catch(console.warn);
+    }
+  };
+
+  const handleRevertPendingUser = (userId: string) => {
+    const updatedUsers = existingUsers.map((u) => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          approvalStatus: "pending" as ApprovalStatus,
+          reviewedAt: undefined,
+          approvalNotes: undefined,
+        };
+      }
+      return u;
+    });
+    setExistingUsers(updatedUsers);
+    localStorage.setItem("beno_users", JSON.stringify(updatedUsers));
+
+    const targetUser = updatedUsers.find((u) => u.id === userId);
+    if (targetUser) {
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(targetUser);
+        localStorage.setItem("beno_current_user", JSON.stringify(targetUser));
+      }
+
+      if (targetUser.role === "agent") {
+        setAgents((prev) => {
+          const updated = prev.map((a) =>
+            a.id === targetUser.id ? { ...a, approvalStatus: "pending" as ApprovalStatus } : a
+          );
+          localStorage.setItem("beno_agents", JSON.stringify(updated));
+          return updated;
+        });
+      }
+
+      updateUserProfileInFirestore(targetUser).catch(console.warn);
+    }
+  };
+
   const handleToggleFavorite = (propertyId: string) => {
     if (!currentUser) {
       setAuthModalPrompt("Sign In / Register to Save Property");
@@ -989,40 +1344,40 @@ export default function App() {
         };
       case "tools":
         return {
-          title: "Bond Calculator & Transfer Duty Guide | Beno Properties(SA)",
+          title: "Bond Calculator & Transfer Duty Guide | Beno Properties",
           description: "Calculate your South African home loan repayments, monthly interest premium targets, and learn about SARS transfer duty tax brackets for your property purchase.",
           keywords: "home loan calculator south africa, bond registration fees, transfer duty calculator sars",
-          ogTitle: "Home Loan Bond Repayment Simulator | Beno Properties(SA)",
+          ogTitle: "Home Loan Bond Repayment Simulator | Beno Properties",
           ogDescription: "Compute your estimated monthly mortgage bond repayments and explore SA buying cost guidelines.",
           ogImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/tools`,
         };
       case "agents":
         return {
-          title: "Our Expert Real Estate Partners | Beno Properties(SA)",
+          title: "Our Expert Real Estate Partners | Beno Properties",
           description: "Meet our certified real estate professional agents. Based in Johannesburg, offering premium property match-making and transaction advisory.",
           keywords: "johannesburg real estate agents, gauteng property brokers, david beno, sipho khumalo",
-          ogTitle: "Professional Real Estate Team | Beno Properties(SA)",
+          ogTitle: "Professional Real Estate Team | Beno Properties",
           ogDescription: "Connect directly with our registered, expert Gauteng real estate specialists for luxury sales and rentals.",
           ogImage: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/agents`,
         };
       case "contact":
         return {
-          title: "Contact Beno Properties(SA) | Modderfontein, Johannesburg",
+          title: "Contact Beno Properties | Modderfontein, Johannesburg",
           description: "Reach out to our partners today. Visit our office at No 1 Casino Road, Foundershill, Modderfontein, Johannesburg. Email us at nolithazwane@benopropertiessa.com, or call 010 141 0720 / 081 265 2533.",
-          keywords: "contact beno properties sa, modderfontein real estate office, casino road modderfontein",
-          ogTitle: "Connect With Our Gauteng Team | Beno Properties(SA)",
+          keywords: "contact beno properties, modderfontein real estate office, casino road modderfontein",
+          ogTitle: "Connect With Our Gauteng Team | Beno Properties",
           ogDescription: "Have a listing or viewing inquiry? Get in touch with our team via email or our secure contact forms.",
           ogImage: "https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/contact`,
         };
       case "portal":
         return {
-          title: "Partner Workspace & Portal | Beno Properties(SA)",
-          description: "Secure workspace dashboard for Beno Properties(SA) partners. Access active client profiles, save real-time search alerts, and manage luxury listings.",
+          title: "Partner Workspace & Portal | Beno Properties",
+          description: "Secure workspace dashboard for Beno Properties partners. Access active client profiles, save real-time search alerts, and manage luxury listings.",
           keywords: "agent login, partner portal, real estate CRM soweto, real estate dashboard",
-          ogTitle: "Exclusive Partner Portal | Beno Properties(SA)",
+          ogTitle: "Exclusive Partner Portal | Beno Properties",
           ogDescription: "Collaborate and manage real estate clients, listings, and leads in our secure cloud workspace.",
           ogImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: `${window.location.origin}/portal`,
@@ -1030,10 +1385,10 @@ export default function App() {
       case "home":
       default:
         return {
-          title: "Beno Properties(SA) | Premium South African Real Estate",
-          description: "At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
-          keywords: "beno properties sa, modderfontein real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
-          ogTitle: "Beno Properties(SA) - Premium Gauteng Real Estate",
+          title: "Beno Properties | Premium South African Real Estate",
+          description: "At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.",
+          keywords: "beno properties, modderfontein real estate, luxury housing gauteng, buy house johannesburg, rent sandton",
+          ogTitle: "Beno Properties - Premium Gauteng Real Estate",
           ogDescription: "Delivering exceptional property match-making and transaction advisory services across Gauteng.",
           ogImage: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&h=630&q=80",
           ogUrl: window.location.origin,
@@ -1076,6 +1431,13 @@ export default function App() {
               leads={leads}
               onUpdateLead={handleUpdateLead}
               agents={agents}
+              onAddAgent={handleAddAgent}
+              onUpdateAgent={handleUpdateAgent}
+              onDeleteAgent={handleDeleteAgent}
+              users={existingUsers}
+              onApproveUser={handleApproveUser}
+              onRejectUser={handleRejectUser}
+              onRevertPendingUser={handleRevertPendingUser}
               alertSubscriptions={alertSubscriptions.filter(a => a.email === currentUser.email)}
               onDeleteAlert={handleDeleteAlert}
               onAddAlert={handleAddAlert}
@@ -1132,7 +1494,7 @@ export default function App() {
                     Administrative Sandbox Workspace
                   </h3>
                   <p className="text-slate-400 text-xs">
-                    You are currently managing Beno Properties(SA) records. All edits sync immediately.
+                    You are currently managing Beno Properties records. All edits sync immediately.
                   </p>
                 </div>
               </div>
@@ -1160,10 +1522,19 @@ export default function App() {
               onAddProperty={handleAddProperty}
               onDeleteProperty={handleDeleteProperty}
               onUpdateProperty={handleUpdateProperty}
+              agents={agents}
+              onAddAgent={handleAddAgent}
+              onUpdateAgent={handleUpdateAgent}
+              onDeleteAgent={handleDeleteAgent}
+              users={existingUsers}
+              onApproveUser={handleApproveUser}
+              onRejectUser={handleRejectUser}
+              onRevertPendingUser={handleRevertPendingUser}
               listSubmissions={listSubmissions}
               alertSubscriptions={alertSubscriptions}
               finderRequests={finderRequests}
               contactMessages={contactMessages}
+              leads={leads}
             />
           </div>
         ) : (
@@ -1205,7 +1576,7 @@ export default function App() {
 
                   {/* Subtitle */}
                   <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-sans">
-                    {currentTab === "home" && "At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence."}
+                    {currentTab === "home" && "At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence."}
                     {currentTab === "sale" && "Browse our curated catalog of elite family houses, luxury penthouses, modern clusters, and development vacant stands ready for purchase in Gauteng."}
                     {currentTab === "rent" && "Secure lock-up-and-go corporate apartments, executive townhouses, and A-grade commercial suites with certified long-term tenancy matching."}
                   </p>
@@ -1271,10 +1642,22 @@ export default function App() {
                       </p>
                     </div>
 
-                    {/* Quick Counts indicator */}
-                    <span className="text-xs font-mono text-gray-600 self-start md:self-end bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">
-                      Found <strong className="text-brand-secondary font-bold">{filteredProperties.length}</strong> matching listings
-                    </span>
+                    {/* Quick Counts indicator and Compare Button */}
+                    <div className="flex items-center gap-2 self-start md:self-end">
+                      {comparedPropertyIds.length > 0 && (
+                        <button
+                          onClick={() => setIsComparisonModalOpen(true)}
+                          id="btn-header-compare-properties"
+                          className="text-xs font-bold uppercase tracking-wider text-slate-950 bg-amber-400 hover:bg-amber-300 px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Scale className="h-3.5 w-3.5" />
+                          <span>Compare ({comparedPropertyIds.length})</span>
+                        </button>
+                      )}
+                      <span className="text-xs font-mono text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">
+                        Found <strong className="text-brand-secondary font-bold">{filteredProperties.length}</strong> matching listings
+                      </span>
+                    </div>
                   </div>
 
                   {/* Listings Grid */}
@@ -1312,6 +1695,8 @@ export default function App() {
                           onViewDetails={(p) => setSelectedProperty(p)}
                           isFavorited={currentUser ? (currentUser.favorites || []).includes(prop.id) : false}
                           onToggleFavorite={handleToggleFavorite}
+                          isCompared={comparedPropertyIds.includes(prop.id)}
+                          onToggleCompare={handleToggleCompare}
                         />
                       ))}
                     </div>
@@ -1335,6 +1720,8 @@ export default function App() {
                           onViewDetails={(p) => setSelectedProperty(p)}
                           isFavorited={currentUser ? (currentUser.favorites || []).includes(prop.id) : false}
                           onToggleFavorite={handleToggleFavorite}
+                          isCompared={comparedPropertyIds.includes(prop.id)}
+                          onToggleCompare={handleToggleCompare}
                         />
                       ))}
                     </div>
@@ -1388,6 +1775,9 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Grounded Intelligence Suite (Google Maps & Google Search via gemini-3.5-flash) */}
+                  <BenoIntelligenceHub />
                 </div>
               </div>
             )}
@@ -1463,6 +1853,94 @@ export default function App() {
           existingUsers={existingUsers}
           onRegisterUser={handleRegisterUser}
           prompt={authModalPrompt}
+        />
+      )}
+
+      {/* FLOATING PROPERTY COMPARISON BAR */}
+      {comparedPropertyIds.length > 0 && !isComparisonModalOpen && (
+        <div
+          id="floating-comparison-dock"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900/95 backdrop-blur-md text-white border border-gray-700/80 shadow-2xl rounded-full px-4 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-5 max-w-[94vw] sm:max-w-2xl transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-amber-400 text-slate-950">
+              <Scale className="h-4 w-4" />
+            </div>
+            <div className="hidden sm:block">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                {comparedPropertyIds.length} {comparedPropertyIds.length === 1 ? "Property" : "Properties"} Shortlisted
+              </span>
+              <span className="text-[10px] text-gray-400 block font-mono">Compare up to 4 side-by-side</span>
+            </div>
+            <span className="sm:hidden text-xs font-bold text-amber-400 font-mono">
+              {comparedPropertyIds.length} Selected
+            </span>
+          </div>
+
+          {/* Thumbnails preview */}
+          <div className="flex items-center -space-x-2 overflow-hidden">
+            {comparedPropertyIds.map((id) => {
+              const p = properties.find((item) => item.id === id);
+              if (!p) return null;
+              return (
+                <img
+                  key={id}
+                  src={p.imageUrl}
+                  alt={p.title}
+                  className="w-8 h-8 rounded-full border-2 border-gray-800 object-cover"
+                  title={p.title}
+                />
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsComparisonModalOpen(true)}
+              id="btn-open-comparison-modal"
+              className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold rounded-full text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center gap-1.5 active:scale-95"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              <span>Compare Now</span>
+            </button>
+
+            <button
+              onClick={handleClearAllCompare}
+              className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer text-xs"
+              title="Clear Comparison Shortlist"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast feedback */}
+      {comparisonToast && (
+        <div className="fixed top-24 right-6 z-50 bg-gray-900/95 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-gray-700 text-xs flex items-center gap-2">
+          <Scale className="h-4 w-4 text-amber-400 flex-shrink-0" />
+          <span>{comparisonToast}</span>
+        </div>
+      )}
+
+      {/* DEDICATED PROPERTY COMPARISON MODAL */}
+      {isComparisonModalOpen && (
+        <PropertyComparisonModal
+          comparedProperties={properties.filter((p) => comparedPropertyIds.includes(p.id))}
+          allProperties={properties}
+          agents={agents}
+          onClose={() => setIsComparisonModalOpen(false)}
+          onRemoveProperty={handleRemoveFromCompare}
+          onAddProperty={handleAddPropertyToCompare}
+          onClearAll={handleClearAllCompare}
+          onViewPropertyDetails={(p) => {
+            setIsComparisonModalOpen(false);
+            setSelectedProperty(p);
+          }}
+          onInquireProperty={(p) => {
+            setIsComparisonModalOpen(false);
+            setSelectedProperty(p);
+          }}
         />
       )}
     </div>

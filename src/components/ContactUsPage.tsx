@@ -47,10 +47,10 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
       {/* Page Header */}
       <div className="text-center max-w-2xl mx-auto" id="contact-intro">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 uppercase tracking-tight">
-          Connect With Beno Properties(SA)
+          Connect With Beno Properties
         </h2>
         <p className="text-gray-500 text-sm mt-3 leading-relaxed">
-          At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
+          At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
         </p>
       </div>
 
@@ -154,7 +154,7 @@ export default function ContactUsPage({ onSubmitMessage }: ContactUsPageProps) {
           <div className="bg-white border border-gray-200 p-5 rounded-2xl flex items-center gap-3 shadow-sm">
             <ShieldCheck className="h-8 w-8 text-brand-primary flex-shrink-0" />
             <div className="text-xs text-gray-500 font-mono">
-              Beno Properties(SA) is fully registered with the <strong className="text-gray-800">Property Practitioners Regulatory Authority (PPRA)</strong> of South Africa.
+              Beno Properties is fully registered with the <strong className="text-gray-800">Property Practitioners Regulatory Authority (PPRA)</strong> of South Africa.
             </div>
           </div>
         </div>

@@ -34,7 +34,8 @@ export const INITIAL_AGENTS: Agent[] = [
     email: "david@benoproperties.co.za",
     imageUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
     specialization: ["Luxury Sales", "Estate Portfolios", "Investment Advisory"],
-    bio: "With over 15 years of premium real estate experience in Gauteng, David founded Beno Properties to deliver bespoke property match-making and seamless transaction advisory services to discerning buyers and landlords."
+    bio: "With over 15 years of premium real estate experience in Gauteng, David founded Beno Properties to deliver bespoke property match-making and seamless transaction advisory services to discerning buyers and landlords.",
+    approvalStatus: "approved"
   },
   {
     id: "BENO-AGT-2",
@@ -44,7 +45,8 @@ export const INITIAL_AGENTS: Agent[] = [
     email: "lungile@benoproperties.co.za",
     imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
     specialization: ["Gauteng North Sales", "Family Townhouses", "New Developments"],
-    bio: "Lungile is passionate about matching families with their dream homes. Known for her in-depth knowledge of Centurion, Midrand, and Pretoria East markets, she ensures a stress-free transition for every home buyer."
+    bio: "Lungile is passionate about matching families with their dream homes. Known for her in-depth knowledge of Centurion, Midrand, and Pretoria East markets, she ensures a stress-free transition for every home buyer.",
+    approvalStatus: "approved"
   },
   {
     id: "BENO-AGT-3",
@@ -54,7 +56,8 @@ export const INITIAL_AGENTS: Agent[] = [
     email: "zama@benoproperties.co.za",
     imageUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80",
     specialization: ["Corporate Rentals", "Tenant Vetting", "Apartments Portfolio"],
-    bio: "Zama leads the Beno Rentals team. She specializes in secure corporate rentals, luxury apartments in Sandton and Rosebank, and maintaining a high occupancy rate with fully vetted long-term tenants."
+    bio: "Zama leads the Beno Rentals team. She specializes in secure corporate rentals, luxury apartments in Sandton and Rosebank, and maintaining a high occupancy rate with fully vetted long-term tenants.",
+    approvalStatus: "approved"
   },
   {
     id: "BENO-AGT-4",
@@ -64,7 +67,8 @@ export const INITIAL_AGENTS: Agent[] = [
     email: "pieter@benoproperties.co.za",
     imageUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80",
     specialization: ["Commercial Offices", "Industrial Warehouses", "Agricultural Land"],
-    bio: "Pieter oversees our non-residential sector. From negotiating commercial leases in Sandton CBD to brokering industrial warehouse developments in Midrand, Pieter's analytical approach drives great returns for investors."
+    bio: "Pieter oversees our non-residential sector. From negotiating commercial leases in Sandton CBD to brokering industrial warehouse developments in Midrand, Pieter's analytical approach drives great returns for investors.",
+    approvalStatus: "approved"
   }
 ];
 
@@ -623,5 +627,510 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
     outcomeNotes: "Offer accepted by seller.",
     reminderSent: true,
     createdAt: "2026-06-08T11:00:00-07:00"
+  }
+];
+
+export const DEFAULT_EMAIL_TEMPLATES: import("./types").EmailTemplate[] = [
+  {
+    id: "TMPL-1",
+    title: "Viewing Confirmation & Details",
+    description: "Send immediately after booking a private on-site inspection or open house viewing.",
+    category: "Viewing",
+    subject: "Viewing Confirmation: {property_name} with Beno Properties",
+    body: `Dear {client_name},
+
+Thank you for your inquiry regarding {property_name} ({property_ref}).
+
+We have scheduled your private property viewing as follows:
+• Property: {property_name}
+• Location: {property_location}
+• Asking Price: {property_price}
+• Scheduled Date & Time: {viewing_time}
+• Dedicated Agent: {agent_name} ({agent_phone})
+
+Please ensure you have your South African ID or passport handy for estate security gate pre-clearance if applicable.
+
+If you need turn-by-turn directions or need to adjust your arrival time, please call or WhatsApp me directly at {agent_phone}.
+
+We look forward to introducing you to this exceptional space!
+
+Warm regards,
+{agent_name}
+Beno Properties
+{office_address}
+Email: {agent_email} | Cell: {agent_phone}`,
+    placeholders: [
+      "{client_name}",
+      "{property_name}",
+      "{property_ref}",
+      "{property_location}",
+      "{property_price}",
+      "{viewing_time}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{agent_email}",
+      "{office_address}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  },
+  {
+    id: "TMPL-2",
+    title: "Inquiry Follow-up & Portfolio Pack",
+    description: "First response to portal or website inquiries with specs and qualification questions.",
+    category: "Inquiry Follow-up",
+    subject: "Inquiry Regarding {property_name} | Beno Properties",
+    body: `Hi {client_name},
+
+Thank you for reaching out to Beno Properties regarding {property_name} in {property_location}.
+
+This property ({property_ref}) listed at {property_price} has attracted strong interest due to its prime position and high-standard finishes.
+
+To help me best assist you with your property journey:
+1. Are you looking to acquire with bond pre-approval or as a cash transaction?
+2. What times suit you best this week for a 30-minute private walk-through?
+3. Would you like to review similar off-market or upcoming listings in {property_location}?
+
+Please let me know, and I will be delighted to coordinate a viewing at your convenience.
+
+Best regards,
+{agent_name}
+Real Estate Specialist | Beno Properties
+Direct: {agent_phone} | {agent_email}
+Office: {office_address}`,
+    placeholders: [
+      "{client_name}",
+      "{property_name}",
+      "{property_ref}",
+      "{property_location}",
+      "{property_price}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{agent_email}",
+      "{office_address}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  },
+  {
+    id: "TMPL-3",
+    title: "Price Reduction & High-Demand Alert",
+    description: "Notify interested buyers/investors when a property receives a price improvement.",
+    category: "Price Alert",
+    subject: "Price Improvement Opportunity: {property_name} ({property_price})",
+    body: `Dear {client_name},
+
+I wanted to share an exclusive update regarding {property_name} ({property_ref}) in {property_location}.
+
+The seller has adjusted the asking price to {property_price}, creating an exceptional equity opportunity in this high-demand Gauteng suburb.
+
+Given your search preferences, this home represents one of the strongest value propositions currently available in {property_location}.
+
+Would you like me to reserve a VIP viewing slot for you this Saturday or Sunday? Simply reply to this email or send a quick WhatsApp to {agent_phone}.
+
+Sincerely,
+{agent_name}
+Beno Properties
+Cell: {agent_phone} | {agent_email}`,
+    placeholders: [
+      "{client_name}",
+      "{property_name}",
+      "{property_ref}",
+      "{property_location}",
+      "{property_price}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{agent_email}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  },
+  {
+    id: "TMPL-4",
+    title: "Offer to Purchase (OTP) Draft & Next Steps",
+    description: "Send formal OTP paperwork and FICA guidelines to a buyer ready to submit an offer.",
+    category: "Offer & Closing",
+    subject: "Offer to Purchase Documents: {property_name} - {client_name}",
+    body: `Dear {client_name},
+
+Congratulations on taking the exciting next step toward securing {property_name} in {property_location}!
+
+Please find attached the official Offer to Purchase (OTP) draft prepared with an offered amount of {property_price}.
+
+Key next steps for your review:
+1. Please read through the suspensive conditions, purchase price breakdown, and standard 21-day bond application clause.
+2. Initial the bottom of each page and sign Section 8 (Purchaser).
+3. Provide your FICA documentation:
+   • Clear copy of South African ID / Passport
+   • Proof of Residential Address (utility bill or bank letter under 3 months old)
+   • Marriage certificate / ANC contract if applicable
+
+Our accredited bond origination partners are on standby to submit your application simultaneously to all major South African commercial banks at zero cost.
+
+Please call me at {agent_phone} if you would like to discuss any clause before signing.
+
+Warm regards,
+{agent_name}
+Principal / Senior Broker | Beno Properties
+{office_address} | {agent_phone}`,
+    placeholders: [
+      "{client_name}",
+      "{property_name}",
+      "{property_location}",
+      "{property_price}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{office_address}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  },
+  {
+    id: "TMPL-5",
+    title: "Tenant Vetting & Lease Pack",
+    description: "Guide prospective tenants on required documents and credit check authorization.",
+    category: "Tenant Vetting",
+    subject: "Tenant Application & Verification: {property_name}",
+    body: `Dear {client_name},
+
+Thank you for selecting {property_name} in {property_location} (Rental: {property_price}/month) as your prospective new residence.
+
+To proceed with TPN Credit Bureau screening and landlord authorization, please reply with the following required documents:
+• Copy of South African ID Document or valid Passport & Work Permit
+• 3 months' latest bank statements (stamped by your bank or downloaded with digital security seal)
+• 3 months' latest payslips (or 6 months' management accounts if self-employed)
+• Contact details of your previous landlord for reference verification
+
+Upon receipt, we will expedite approval within 24 business hours and prepare the official lease contract.
+
+Thank you,
+{agent_name}
+Rental Management Division | Beno Properties
+Direct: {agent_phone} | {agent_email}`,
+    placeholders: [
+      "{client_name}",
+      "{property_name}",
+      "{property_location}",
+      "{property_price}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{agent_email}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  },
+  {
+    id: "TMPL-6",
+    title: "Complimentary Valuation Consultation",
+    description: "Follow up with homeowners looking to list or understand current market equity.",
+    category: "Inquiry Follow-up",
+    subject: "Complimentary Property Valuation: {property_location} with Beno Properties",
+    body: `Dear {client_name},
+
+Thank you for your inquiry regarding a professional property valuation for your property in {property_location}.
+
+At Beno Properties, our Comparative Market Analysis (CMA) provides accurate, data-driven pricing intelligence including:
+• Verified Deeds Office registrations and transfer records in your immediate neighbourhood
+• Active competitor listings and price-per-square-metre benchmarks
+• Current buyer and tenant inquiry velocity across Gauteng
+
+I would be pleased to schedule a complimentary 30-minute valuation visit at your residence on your preferred day.
+
+Please let me know when suits your schedule best.
+
+Warm regards,
+{agent_name}
+Beno Properties
+{office_address}
+Phone: {agent_phone} | {agent_email}`,
+    placeholders: [
+      "{client_name}",
+      "{property_location}",
+      "{agent_name}",
+      "{agent_phone}",
+      "{agent_email}",
+      "{office_address}"
+    ],
+    isDefault: true,
+    createdAt: "2026-01-15T08:00:00Z"
+  }
+];
+
+export const GAUTENG_SUBURB_DEMAND_DATA: import("./types").SuburbDemandData[] = [
+  {
+    id: "DEM-SANDTON",
+    suburb: "Sandton Central & Morningside",
+    region: "Sandton & Rivonia",
+    inquiryCount: 384,
+    viewingCount: 142,
+    averageBudget: 4850000,
+    demandScore: 96,
+    intensityLevel: "Very High",
+    topPropertyType: "Luxury Apartments & Penthouses",
+    primaryPurpose: "Balanced",
+    growthRatePct: 34,
+    keyDemandDrivers: [
+      "Gautrain rapid transit proximity",
+      "Corporate finance & law headquarters",
+      "24/7 security concierge living",
+      "High executive rental yields"
+    ],
+    activePropertiesCount: 12,
+    latitude: -26.1076,
+    longitude: 28.0567,
+    coordinates: { x: 390, y: 310 }
+  },
+  {
+    id: "DEM-ROSEBANK",
+    suburb: "Rosebank & Houghton Estate",
+    region: "Johannesburg North",
+    inquiryCount: 298,
+    viewingCount: 118,
+    averageBudget: 6200000,
+    demandScore: 92,
+    intensityLevel: "Very High",
+    topPropertyType: "Heritage Mansions & Urban Lofts",
+    primaryPurpose: "Buying",
+    growthRatePct: 28,
+    keyDemandDrivers: [
+      "Walkable lifestyle & Oxford Parks precinct",
+      "Top private schools (Roedean, St John's)",
+      "High capital preservation resilience",
+      "Solar & backup water microgrids"
+    ],
+    activePropertiesCount: 8,
+    latitude: -26.1458,
+    longitude: 28.0436,
+    coordinates: { x: 380, y: 360 }
+  },
+  {
+    id: "DEM-MIDRAND",
+    suburb: "Midrand & Waterfall Estate",
+    region: "Midrand & Centurion",
+    inquiryCount: 342,
+    viewingCount: 129,
+    averageBudget: 3650000,
+    demandScore: 94,
+    intensityLevel: "Very High",
+    topPropertyType: "Gated Eco-Estates & Townhouses",
+    primaryPurpose: "Buying",
+    growthRatePct: 41,
+    keyDemandDrivers: [
+      "Mall of Africa commercial growth corridor",
+      "Comprehensive green lifestyle estates",
+      "Midway positioning between Joburg & Pretoria",
+      "Heavy young executive influx"
+    ],
+    activePropertiesCount: 15,
+    latitude: -26.0028,
+    longitude: 28.1256,
+    coordinates: { x: 440, y: 220 }
+  },
+  {
+    id: "DEM-BRYANSTON",
+    suburb: "Bryanston & Riverclub",
+    region: "Sandton & Rivonia",
+    inquiryCount: 265,
+    viewingCount: 96,
+    averageBudget: 5400000,
+    demandScore: 88,
+    intensityLevel: "High",
+    topPropertyType: "Modern Clusters & Large Stand Villas",
+    primaryPurpose: "Buying",
+    growthRatePct: 22,
+    keyDemandDrivers: [
+      "Substantial land plots with established gardens",
+      "Brescia House & St Stithians school proximity",
+      "Off-grid solar & inverter infrastructure",
+      "High family tenure longevity"
+    ],
+    activePropertiesCount: 9,
+    latitude: -26.0561,
+    longitude: 28.0242,
+    coordinates: { x: 350, y: 270 }
+  },
+  {
+    id: "DEM-FOURWAYS",
+    suburb: "Fourways & Lonehill",
+    region: "Johannesburg North",
+    inquiryCount: 234,
+    viewingCount: 88,
+    averageBudget: 2850000,
+    demandScore: 84,
+    intensityLevel: "High",
+    topPropertyType: "Secure Townhouses & Cluster Homes",
+    primaryPurpose: "Balanced",
+    growthRatePct: 19,
+    keyDemandDrivers: [
+      "Family entertainment & shopping nodes",
+      "Accessible entry-level luxury pricing",
+      "Proven estate security records",
+      "Consistent rental occupancy"
+    ],
+    activePropertiesCount: 11,
+    latitude: -26.0185,
+    longitude: 27.9984,
+    coordinates: { x: 310, y: 230 }
+  },
+  {
+    id: "DEM-CENTURION",
+    suburb: "Centurion & Midstream Estate",
+    region: "Midrand & Centurion",
+    inquiryCount: 312,
+    viewingCount: 115,
+    averageBudget: 3450000,
+    demandScore: 90,
+    intensityLevel: "Very High",
+    topPropertyType: "Estate Homes & Golf Villas",
+    primaryPurpose: "Buying",
+    growthRatePct: 36,
+    keyDemandDrivers: [
+      "Complete load-shedding free microgrid estates",
+      "Hospitals, private schools within estate perimeter",
+      "Rapid N1 / R21 highway accessibility",
+      "High security safety ratings"
+    ],
+    activePropertiesCount: 14,
+    latitude: -25.8603,
+    longitude: 28.1894,
+    coordinates: { x: 480, y: 150 }
+  },
+  {
+    id: "DEM-PRETORIA-EAST",
+    suburb: "Pretoria East & Waterkloof",
+    region: "Pretoria & Tshwane",
+    inquiryCount: 278,
+    viewingCount: 104,
+    averageBudget: 4200000,
+    demandScore: 89,
+    intensityLevel: "High",
+    topPropertyType: "Diplomatic Residences & Estates",
+    primaryPurpose: "Buying",
+    growthRatePct: 25,
+    keyDemandDrivers: [
+      "Embassy & diplomatic leasing contracts",
+      "Historic prestige and capital stability",
+      "University of Pretoria & medical hubs",
+      "Menlyn Maine green precinct expansion"
+    ],
+    activePropertiesCount: 10,
+    latitude: -25.7831,
+    longitude: 28.2526,
+    coordinates: { x: 530, y: 100 }
+  },
+  {
+    id: "DEM-MODDERFONTEIN",
+    suburb: "Modderfontein & Foundershill",
+    region: "East Rand",
+    inquiryCount: 245,
+    viewingCount: 92,
+    averageBudget: 2650000,
+    demandScore: 86,
+    intensityLevel: "High",
+    topPropertyType: "Modern Eco-Apartments & Townhouses",
+    primaryPurpose: "Renting",
+    growthRatePct: 31,
+    keyDemandDrivers: [
+      "Beno Properties headquarters node",
+      "Modderfontein Nature Reserve trail access",
+      "Close proximity to OR Tambo International Airport",
+      "High tenant demand from logistics professionals"
+    ],
+    activePropertiesCount: 7,
+    latitude: -26.0911,
+    longitude: 28.1633,
+    coordinates: { x: 470, y: 310 }
+  },
+  {
+    id: "DEM-BEDFORDVIEW",
+    suburb: "Bedfordview & Edenvale",
+    region: "East Rand",
+    inquiryCount: 215,
+    viewingCount: 79,
+    averageBudget: 3800000,
+    demandScore: 82,
+    intensityLevel: "High",
+    topPropertyType: "Luxury Freehold & Secure Enclaves",
+    primaryPurpose: "Buying",
+    growthRatePct: 18,
+    keyDemandDrivers: [
+      "Convenient access to Johannesburg CBD and East Rand",
+      "Top private schools (St Benedict's, St Andrew's)",
+      "Boomed-off road enclaves",
+      "Commercial business parks"
+    ],
+    activePropertiesCount: 6,
+    latitude: -26.1783,
+    longitude: 28.1408,
+    coordinates: { x: 460, y: 380 }
+  },
+  {
+    id: "DEM-SOWETO",
+    suburb: "Soweto (Diepkloof & Protea Glen)",
+    region: "West Rand & Soweto",
+    inquiryCount: 189,
+    viewingCount: 71,
+    averageBudget: 1450000,
+    demandScore: 78,
+    intensityLevel: "Moderate",
+    topPropertyType: "Freehold Residences & Starter Homes",
+    primaryPurpose: "Buying",
+    growthRatePct: 27,
+    keyDemandDrivers: [
+      "Rapidly appreciating emerging middle-class nodes",
+      "High demand for newly developed gated pockets",
+      "Strong community culture & retail expansions",
+      "First-time home buyer FLISP subsidies"
+    ],
+    activePropertiesCount: 5,
+    latitude: -26.2625,
+    longitude: 27.8631,
+    coordinates: { x: 250, y: 450 }
+  },
+  {
+    id: "DEM-RANDBURG",
+    suburb: "Randburg & Linden",
+    region: "Johannesburg North",
+    inquiryCount: 198,
+    viewingCount: 75,
+    averageBudget: 2400000,
+    demandScore: 79,
+    intensityLevel: "Moderate",
+    topPropertyType: "Character Cottages & Townhouses",
+    primaryPurpose: "Balanced",
+    growthRatePct: 16,
+    keyDemandDrivers: [
+      "Artisan cafe culture & central proximity",
+      "Affordable freehold family properties",
+      "Media and broadcasting professional hub",
+      "Linden school zoning popularity"
+    ],
+    activePropertiesCount: 8,
+    latitude: -26.1284,
+    longitude: 27.9942,
+    coordinates: { x: 330, y: 350 }
+  },
+  {
+    id: "DEM-HYDE-PARK",
+    suburb: "Hyde Park & Craighall Park",
+    region: "Johannesburg North",
+    inquiryCount: 176,
+    viewingCount: 68,
+    averageBudget: 8500000,
+    demandScore: 85,
+    intensityLevel: "High",
+    topPropertyType: "Ultra-Luxury Estates & Signature Mansions",
+    primaryPurpose: "Buying",
+    growthRatePct: 14,
+    keyDemandDrivers: [
+      "Ultra-exclusive status address",
+      "High net worth individual (HNWI) security",
+      "Hyde Park Corner bespoke shopping",
+      "Long-term blue-chip capital stability"
+    ],
+    activePropertiesCount: 4,
+    latitude: -26.1235,
+    longitude: 28.0336,
+    coordinates: { x: 365, y: 335 }
   }
 ];

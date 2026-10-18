@@ -4,20 +4,37 @@
  */
 
 import React, { useState } from "react";
-import { PlusCircle, ListCollapse, UserCheck, Inbox, Trash2, Edit2, ShieldAlert, Check, Sparkles, Image, Eye } from "lucide-react";
-import { Property, PropertyType, PropertyStatus, ListPropertySubmission, EmailAlertSubscription, PropertyFinderRequest, ContactMessage } from "../types";
+import {
+  PlusCircle, ListCollapse, UserCheck, Inbox, Trash2, Edit2, ShieldAlert,
+  Check, Sparkles, Image, Eye, Users, ShieldCheck, Download, FileSpreadsheet,
+  CheckCircle2, Flame, Mail
+} from "lucide-react";
+import { Property, PropertyType, PropertyStatus, ListPropertySubmission, EmailAlertSubscription, PropertyFinderRequest, ContactMessage, Agent, UserProfile, Lead } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import { GAUTENG_SUBURBS } from "../data";
+import AgentManager from "./AgentManager";
+import RegistrationApprovals from "./RegistrationApprovals";
+import PropertyDemandHeatmap from "./PropertyDemandHeatmap";
+import EmailTemplateManager, { QuickFollowUpModal } from "./EmailTemplateManager";
 
 interface AdminPanelProps {
-  properties: Property[];
+  properties?: Property[];
   onAddProperty: (property: Property) => void;
   onDeleteProperty: (id: string) => void;
   onUpdateProperty: (property: Property) => void;
-  listSubmissions: ListPropertySubmission[];
-  alertSubscriptions: EmailAlertSubscription[];
-  finderRequests: PropertyFinderRequest[];
-  contactMessages: ContactMessage[];
+  agents?: Agent[];
+  onAddAgent?: (agent: Agent) => void;
+  onUpdateAgent?: (agent: Agent) => void;
+  onDeleteAgent?: (id: string) => void;
+  users?: UserProfile[];
+  onApproveUser?: (userId: string) => void;
+  onRejectUser?: (userId: string, reason?: string) => void;
+  onRevertPendingUser?: (userId: string) => void;
+  listSubmissions?: ListPropertySubmission[];
+  alertSubscriptions?: EmailAlertSubscription[];
+  finderRequests?: PropertyFinderRequest[];
+  contactMessages?: ContactMessage[];
+  leads?: Lead[];
 }
 
 // Pre-defined high quality unsplash images for easy selection
@@ -31,16 +48,30 @@ const OPTIONAL_IMAGES = [
 ];
 
 export default function AdminPanel({
-  properties,
+  properties = [],
   onAddProperty,
   onDeleteProperty,
   onUpdateProperty,
-  listSubmissions,
-  alertSubscriptions,
-  finderRequests,
-  contactMessages,
+  agents = [],
+  onAddAgent = () => {},
+  onUpdateAgent = () => {},
+  onDeleteAgent = () => {},
+  users = [],
+  onApproveUser = () => {},
+  onRejectUser = () => {},
+  onRevertPendingUser = () => {},
+  listSubmissions = [],
+  alertSubscriptions = [],
+  finderRequests = [],
+  contactMessages = [],
+  leads = [],
 }: AdminPanelProps) {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<"manage" | "add" | "leads">("manage");
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<"manage" | "add" | "agents" | "leads" | "templates" | "demand-heatmap" | "approvals">("manage");
+  const [quickFollowUpLead, setQuickFollowUpLead] = useState<{ id: string; name: string; email: string; phone?: string; propertyRefId?: string; details?: string } | null>(null);
+
+  const pendingApprovalsCount = (users || []).filter(
+    (u) => (u.role === "agent" || u.role === "landlord") && u.approvalStatus === "pending"
+  ).length;
 
   // Add Property Form State
   const [title, setTitle] = useState("");
@@ -63,6 +94,185 @@ export default function AdminPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editStatus, setEditStatus] = useState<PropertyStatus>("For Sale");
+
+  // CSV Export States
+  const [csvExportNotification, setCsvExportNotification] = useState<string | null>(null);
+  const [selectedLeadScope, setSelectedLeadScope] = useState<"all" | "crm" | "finder" | "sellers" | "inquiries" | "alerts">("all");
+
+  const escapeCSV = (value: unknown): string => {
+    if (value === null || value === undefined) return '""';
+    const str = String(value).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const handleExportCSV = (scope: "all" | "crm" | "finder" | "sellers" | "inquiries" | "alerts" = selectedLeadScope) => {
+    const headers = [
+      "Lead ID",
+      "Timestamp",
+      "Lead Source / Type",
+      "Full Name",
+      "Email Address",
+      "Phone Number",
+      "Status",
+      "Category",
+      "Property Reference",
+      "Target Suburb / Location",
+      "Property Type",
+      "Budget / Expected Price (ZAR)",
+      "Bedrooms",
+      "Bathrooms",
+      "Assigned Agent ID",
+      "Client Message / Requirements / Notes"
+    ];
+
+    const rows: string[][] = [];
+
+    // 1. CRM Leads (if available or in scope)
+    if (scope === "all" || scope === "crm") {
+      leads.forEach((l) => {
+        rows.push([
+          l.id,
+          l.createdAt || new Date().toISOString(),
+          `CRM Lead (${l.type})`,
+          l.name,
+          l.email,
+          l.phone || "",
+          l.status || "New",
+          l.category || "Buyer",
+          l.propertyRefId || "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          l.assignedAgentId || "Unassigned",
+          l.details || l.notes || ""
+        ]);
+      });
+    }
+
+    // 2. Property Finder Requests
+    if (scope === "all" || scope === "finder") {
+      finderRequests.forEach((req) => {
+        rows.push([
+          req.id,
+          req.submittedAt || new Date().toISOString(),
+          "Property Finder Inquiry",
+          req.name,
+          req.email,
+          req.phone,
+          "New",
+          "Buyer",
+          "",
+          req.specificAreas || "",
+          "",
+          `${formatPriceZAR(req.minPrice, "For Sale")} - ${formatPriceZAR(req.maxPrice, "For Sale")}`,
+          String(req.bedrooms || ""),
+          "",
+          "Unassigned",
+          req.additionalNotes || ""
+        ]);
+      });
+    }
+
+    // 3. Seller / Landlord Submissions
+    if (scope === "all" || scope === "sellers") {
+      listSubmissions.forEach((req) => {
+        rows.push([
+          req.id,
+          req.submittedAt || new Date().toISOString(),
+          `Landlord/Seller Listing (${req.status})`,
+          req.ownerName,
+          req.ownerEmail,
+          req.ownerPhone,
+          "New",
+          req.status === "For Sale" ? "Seller" : "Landlord",
+          "",
+          req.location,
+          req.propertyType,
+          String(req.expectedPrice),
+          String(req.bedrooms ?? ""),
+          String(req.bathrooms ?? ""),
+          "Unassigned",
+          `Title: ${req.propertyTitle} | ${req.description || ""}`
+        ]);
+      });
+    }
+
+    // 4. Contact Inquiries & Direct Messages
+    if (scope === "all" || scope === "inquiries") {
+      contactMessages.forEach((msg) => {
+        rows.push([
+          msg.id,
+          msg.submittedAt || new Date().toISOString(),
+          msg.propertyRefId ? `Property Inquiry (${msg.propertyRefId})` : "General Contact Message",
+          msg.name,
+          msg.email,
+          msg.phone,
+          "New",
+          "General",
+          msg.propertyRefId || "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Unassigned",
+          msg.message
+        ]);
+      });
+    }
+
+    // 5. Email Alert Subscriptions
+    if (scope === "all" || scope === "alerts") {
+      alertSubscriptions.forEach((sub) => {
+        rows.push([
+          sub.id,
+          sub.submittedAt || new Date().toISOString(),
+          "Email Alert Subscription",
+          sub.name,
+          sub.email,
+          "",
+          "Active",
+          sub.preferredStatus === "For Sale" ? "Buyer" : "Tenant",
+          "",
+          sub.location,
+          sub.preferredType,
+          String(sub.maxPrice),
+          "",
+          "",
+          "Unassigned",
+          `Subscribed for ${sub.preferredType} in ${sub.location}`
+        ]);
+      });
+    }
+
+    if (rows.length === 0) {
+      setCsvExportNotification("No leads found for the selected filter.");
+      setTimeout(() => setCsvExportNotification(null), 3000);
+      return;
+    }
+
+    const csvContent =
+      "\uFEFF" +
+      headers.map(escapeCSV).join(",") +
+      "\r\n" +
+      rows.map((row) => row.map(escapeCSV).join(",")).join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().split("T")[0];
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `beno_crm_leads_export_${scope}_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setCsvExportNotification(`Successfully exported ${rows.length} leads to CSV for CRM import!`);
+    setTimeout(() => setCsvExportNotification(null), 4000);
+  };
 
   const handleCreateProperty = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +375,18 @@ export default function AdminPanel({
             Add Property
           </button>
           <button
+            onClick={() => setActiveAdminSubTab("agents")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+              activeAdminSubTab === "agents"
+                ? "bg-brand-primary text-white font-bold"
+                : "text-gray-500 hover:text-gray-900"
+            }`}
+            id="btn-admin-subtab-agents"
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            Manage Agents ({(agents || []).length})
+          </button>
+          <button
             onClick={() => setActiveAdminSubTab("leads")}
             className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
               activeAdminSubTab === "leads"
@@ -173,7 +395,48 @@ export default function AdminPanel({
             }`}
           >
             <Inbox className="h-3.5 w-3.5" />
-            Client Leads ({listSubmissions.length + alertSubscriptions.length + finderRequests.length + contactMessages.length})
+            Client Leads ({((listSubmissions || []).length + (alertSubscriptions || []).length + (finderRequests || []).length + (contactMessages || []).length)})
+          </button>
+          <button
+            onClick={() => setActiveAdminSubTab("templates")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+              activeAdminSubTab === "templates"
+                ? "bg-brand-primary text-white font-bold"
+                : "text-gray-500 hover:text-gray-900"
+            }`}
+            id="btn-admin-subtab-templates"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Email Templates
+          </button>
+          <button
+            onClick={() => setActiveAdminSubTab("demand-heatmap")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+              activeAdminSubTab === "demand-heatmap"
+                ? "bg-brand-primary text-white font-bold"
+                : "text-gray-500 hover:text-gray-900"
+            }`}
+            id="btn-admin-subtab-demand-heatmap"
+          >
+            <Flame className="h-3.5 w-3.5 text-rose-500" />
+            Demand Heatmap
+          </button>
+          <button
+            onClick={() => setActiveAdminSubTab("approvals")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+              activeAdminSubTab === "approvals"
+                ? "bg-brand-primary text-white font-bold"
+                : "text-gray-500 hover:text-gray-900"
+            }`}
+            id="btn-admin-subtab-approvals"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Approvals
+            {pendingApprovalsCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 bg-amber-400 text-slate-950 font-extrabold text-[10px] rounded-full animate-pulse">
+                {pendingApprovalsCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -517,9 +780,74 @@ export default function AdminPanel({
           </div>
         )}
 
-        {/* TAB 3: CLIENT LEADS & REQUESTS */}
+        {/* TAB 3: AGENTS MANAGEMENT */}
+        {activeAdminSubTab === "agents" && (
+          <div className="space-y-6" id="admin-agents-manager">
+            <AgentManager
+              agents={agents}
+              properties={properties}
+              onAddAgent={onAddAgent}
+              onUpdateAgent={onUpdateAgent}
+              onDeleteAgent={onDeleteAgent}
+            />
+          </div>
+        )}
+
+        {/* TAB 4: CLIENT LEADS & REQUESTS */}
         {activeAdminSubTab === "leads" && (
           <div className="space-y-8" id="admin-leads-manager">
+            {/* CRM Export & Management Control Bar */}
+            <div className="bg-gradient-to-r from-gray-900 via-gray-850 to-brand-primary/95 text-white p-5 sm:p-6 rounded-2xl shadow-md border border-gray-850 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-amber-400" />
+                  <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-white">
+                    Client Inquiries & CRM Leads Pipeline
+                  </h3>
+                  <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-mono font-bold rounded-full">
+                    {((listSubmissions || []).length + (alertSubscriptions || []).length + (finderRequests || []).length + (contactMessages || []).length + (leads || []).length)} Total Records
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                  Export client leads, inquiries, property search briefs, and subscriptions directly into CSV for import into Salesforce, HubSpot, Zoho CRM, or Excel.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <select
+                  value={selectedLeadScope}
+                  onChange={(e) => setSelectedLeadScope(e.target.value as any)}
+                  className="bg-gray-800 text-white border border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400 cursor-pointer"
+                  id="select-leads-export-scope"
+                >
+                  <option value="all">All Inquiries ({((listSubmissions || []).length + (alertSubscriptions || []).length + (finderRequests || []).length + (contactMessages || []).length + (leads || []).length)})</option>
+                  <option value="crm">CRM Leads Board ({(leads || []).length})</option>
+                  <option value="finder">Property Finder ({finderRequests.length})</option>
+                  <option value="sellers">Sellers & Landlords ({listSubmissions.length})</option>
+                  <option value="inquiries">Direct Messages ({contactMessages.length})</option>
+                  <option value="alerts">Email Alerts ({alertSubscriptions.length})</option>
+                </select>
+
+                <button
+                  onClick={() => handleExportCSV(selectedLeadScope)}
+                  id="btn-export-leads-csv"
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center gap-2 active:scale-95"
+                  title="Download CSV for CRM import"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Feedback */}
+            {csvExportNotification && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2 font-medium animate-fadeIn">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <span>{csvExportNotification}</span>
+              </div>
+            )}
+
             {/* Lead Section 1: Property Finder */}
             <div className="space-y-3" id="finder-leads-section">
               <h3 className="text-xs font-mono text-brand-primary uppercase tracking-widest border-b border-gray-200 pb-1.5 flex items-center gap-1.5 font-bold">
@@ -551,6 +879,24 @@ export default function AdminPanel({
                           "{req.additionalNotes}"
                         </div>
                       )}
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400 font-mono">Inquiry ID: {req.id}</span>
+                        <button
+                          type="button"
+                          onClick={() => setQuickFollowUpLead({
+                            id: req.id,
+                            name: req.name,
+                            email: req.email,
+                            phone: req.phone,
+                            propertyRefId: "",
+                            details: `Target: ${req.specificAreas}. Budget: ${formatPriceZAR(req.minPrice, "For Sale")} - ${formatPriceZAR(req.maxPrice, "For Sale")}. ${req.additionalNotes || ""}`
+                          })}
+                          className="px-3 py-1.5 bg-brand-primary text-white hover:bg-brand-hover rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <Mail className="h-3 w-3" />
+                          Follow Up (Template)
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -587,6 +933,24 @@ export default function AdminPanel({
                       </div>
                       <div className="bg-gray-50 p-2.5 rounded border border-gray-200 text-xs text-gray-500 leading-relaxed italic">
                         "{req.description}"
+                      </div>
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400 font-mono">{req.location}</span>
+                        <button
+                          type="button"
+                          onClick={() => setQuickFollowUpLead({
+                            id: req.id,
+                            name: req.ownerName,
+                            email: req.ownerEmail,
+                            phone: req.ownerPhone,
+                            propertyRefId: req.id,
+                            details: `${req.propertyTitle} in ${req.location} (${req.propertyType}). ${req.description}`
+                          })}
+                          className="px-3 py-1.5 bg-brand-primary text-white hover:bg-brand-hover rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <Mail className="h-3 w-3" />
+                          Follow Up (Template)
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -627,6 +991,24 @@ export default function AdminPanel({
                       </div>
                       <div className="bg-gray-50 p-2.5 rounded border border-gray-200 text-xs text-gray-500 leading-relaxed italic">
                         "{req.message}"
+                      </div>
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400 font-mono">REF: {req.propertyRefId || "General"}</span>
+                        <button
+                          type="button"
+                          onClick={() => setQuickFollowUpLead({
+                            id: req.id,
+                            name: req.name,
+                            email: req.email,
+                            phone: req.phone,
+                            propertyRefId: req.propertyRefId || "",
+                            details: req.message
+                          })}
+                          className="px-3 py-1.5 bg-brand-primary text-white hover:bg-brand-hover rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <Mail className="h-3 w-3" />
+                          Follow Up (Template)
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -674,7 +1056,54 @@ export default function AdminPanel({
             </div>
           </div>
         )}
+
+        {/* TAB 5: REGISTRATIONS & APPROVALS */}
+        {activeAdminSubTab === "approvals" && (
+          <div className="space-y-6" id="admin-approvals-manager">
+            <RegistrationApprovals
+              users={users}
+              onApproveUser={onApproveUser}
+              onRejectUser={onRejectUser}
+              onRevertPendingUser={onRevertPendingUser}
+            />
+          </div>
+        )}
+
+        {/* TAB 6: EMAIL TEMPLATES MANAGER */}
+        {activeAdminSubTab === "templates" && (
+          <div className="space-y-6" id="admin-email-templates-pane">
+            <EmailTemplateManager
+              properties={properties}
+              leads={leads}
+              currentAgent={agents[0] || null}
+            />
+          </div>
+        )}
+
+        {/* TAB 7: GAUTENG PROPERTY DEMAND HEATMAP */}
+        {activeAdminSubTab === "demand-heatmap" && (
+          <div className="space-y-6" id="admin-demand-heatmap-pane">
+            <PropertyDemandHeatmap
+              properties={properties}
+              leads={leads}
+              finderRequests={finderRequests}
+              contactMessages={contactMessages}
+              alertSubscriptions={alertSubscriptions}
+              listSubmissions={listSubmissions}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Quick Email Follow-Up Modal */}
+      {quickFollowUpLead && (
+        <QuickFollowUpModal
+          lead={quickFollowUpLead}
+          properties={properties}
+          agents={agents}
+          onClose={() => setQuickFollowUpLead(null)}
+        />
+      )}
     </div>
   );
 }

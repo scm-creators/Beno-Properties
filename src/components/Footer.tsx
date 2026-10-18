@@ -34,7 +34,7 @@ export default function Footer({ onBlogClick, onPopularAreaClick, onSitemapClick
               <BenoLogo variant="horizontal" size="sm" light={true} />
             </div>
             <p className="text-gray-400 text-xs leading-relaxed">
-              At Beno Properties(SA), we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
+              At Beno Properties, we believe every property is an opportunity to build a better future. We are committed to delivering quality service, expert advice, and lasting value — helping our clients make informed real estate decisions with confidence.
             </p>
             <div className="space-y-2 text-xs font-mono text-gray-400 pt-2">
               <div className="flex items-start gap-2">
@@ -123,7 +123,7 @@ export default function Footer({ onBlogClick, onPopularAreaClick, onSitemapClick
 
         {/* Bottom copyright & certification */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between text-[11px] text-gray-500 gap-4" id="footer-bottom">
-          <p>© 2026 Beno Properties(SA). All Rights Reserved. ZAR / South African Local Market.</p>
+          <p>© 2026 Beno Properties. All Rights Reserved. ZAR / South African Local Market.</p>
           <div className="flex flex-wrap items-center gap-4 font-mono">
             {onSitemapClick && (
               <button

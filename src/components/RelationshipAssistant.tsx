@@ -508,15 +508,15 @@ export default function RelationshipAssistant({
     if (type === "lead") {
       onUpdateLead({
         ...item,
-        date_of_birth: editBirthDate || undefined,
-        client_since_date: editClientSince || undefined
+        date_of_birth: editBirthDate || "",
+        client_since_date: editClientSince || ""
       });
     } else {
       onUpdateProperty({
         ...item,
-        purchase_date: editPurchaseDate || undefined,
-        lease_start_date: editLeaseStart || undefined,
-        lease_end_date: editLeaseEnd || undefined
+        purchase_date: editPurchaseDate || "",
+        lease_start_date: editLeaseStart || "",
+        lease_end_date: editLeaseEnd || ""
       });
     }
     setEditingId(null);
