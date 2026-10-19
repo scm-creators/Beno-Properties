@@ -230,6 +230,8 @@ export default function App() {
   const [existingUsers, setExistingUsers] = useState<UserProfile[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalPrompt, setAuthModalPrompt] = useState<string>("");
+  const [initialDashboardTab, setInitialDashboardTab] = useState<string>("profile");
+  const [selectedAgentForDirectory, setSelectedAgentForDirectory] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
 
   // Core Data Lists (with LocalStorage persistence)
@@ -1414,6 +1416,16 @@ export default function App() {
           setIsAuthModalOpen(true);
         }}
         onLogout={handleLogout}
+        onOpenFavorites={() => {
+          if (currentUser) {
+            setInitialDashboardTab("favorites");
+            setCurrentTab("portal");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          } else {
+            setAuthModalPrompt("Sign in or register to view and manage your Saved Properties list");
+            setIsAuthModalOpen(true);
+          }
+        }}
       />
 
       {/* Main Content Sections */}
@@ -1458,6 +1470,16 @@ export default function App() {
               onAddInvitation={handleAddInvitation}
               onUpdateInvitation={handleUpdateInvitation}
               onDeleteInvitation={handleDeleteInvitation}
+              initialTab={initialDashboardTab}
+              comparedPropertyIds={comparedPropertyIds}
+              onToggleCompare={handleToggleCompare}
+              onOpenCompare={() => setIsCompareModalOpen(true)}
+              onBrowseProperties={() => {
+                setCurrentTab("home");
+                const anchor = document.getElementById("catalog-anchor");
+                if (anchor) anchor.scrollIntoView({ behavior: "smooth" });
+                else window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
             />
           </div>
         ) : currentTab === "portal" && !currentUser ? (
@@ -1787,10 +1809,25 @@ export default function App() {
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" id="agents-tab-stage">
                 <AgentDirectory
                   agents={agents}
+                  properties={properties}
+                  currentUser={currentUser}
+                  initialAgentId={selectedAgentForDirectory}
                   onContactClick={(agent) => {
                     // Navigate to contact, preset message
                     setCurrentTab("contact");
                     window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  onViewPropertyDetails={(prop) => setSelectedProperty(prop)}
+                  onToggleFavorite={handleToggleFavorite}
+                  onToggleCompare={handleToggleCompare}
+                  comparedPropertyIds={comparedPropertyIds}
+                  onUpdateAgent={handleUpdateAgent}
+                  onAddProperty={handleAddProperty}
+                  onUpdateProperty={handleUpdateProperty}
+                  onDeleteProperty={handleDeleteProperty}
+                  onOpenAuth={(prompt) => {
+                    setAuthModalPrompt(prompt || "Sign in as an agent to manage listings");
+                    setIsAuthModalOpen(true);
                   }}
                 />
               </div>
@@ -1842,6 +1879,13 @@ export default function App() {
           onClose={() => setSelectedProperty(null)}
           onSubmitContactMessage={handleAddContactMessage}
           onSubmitVirtualTourRequest={handleAddVirtualTourRequest}
+          isFavorited={currentUser ? (currentUser.favorites || []).includes(selectedProperty.id) : false}
+          onToggleFavorite={handleToggleFavorite}
+          onViewAgentProfile={(agentId) => {
+            setSelectedAgentForDirectory(agentId);
+            setCurrentTab("agents");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
         />
       )}
 

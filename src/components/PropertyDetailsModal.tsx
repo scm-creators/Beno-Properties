@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video, Link, MessageCircle, MapPin, TrendingUp, Sparkles, Share2, Copy, Check } from "lucide-react";
+import { X, Calendar, User, Tag, Phone, Mail, FileText, Send, CheckCircle, Calculator, Video, Link, MessageCircle, MapPin, TrendingUp, Sparkles, Share2, Copy, Check, Heart, ExternalLink } from "lucide-react";
 import { Property, Agent, ContactMessage } from "../types";
 import { formatPriceZAR } from "./PropertyCard";
 import BondCalculator from "./BondCalculator";
@@ -17,6 +17,9 @@ interface PropertyDetailsModalProps {
   onClose: () => void;
   onSubmitContactMessage: (msg: ContactMessage) => void;
   onSubmitVirtualTourRequest?: (tourRequest: { name: string; email: string; phone: string; propertyId: string }) => void;
+  isFavorited?: boolean;
+  onToggleFavorite?: (propertyId: string) => void;
+  onViewAgentProfile?: (agentId: string) => void;
 }
 
 export default function PropertyDetailsModal({
@@ -25,6 +28,9 @@ export default function PropertyDetailsModal({
   onClose,
   onSubmitContactMessage,
   onSubmitVirtualTourRequest,
+  isFavorited = false,
+  onToggleFavorite,
+  onViewAgentProfile,
 }: PropertyDetailsModalProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "neighborhood" | "market" | "calculator">("overview");
 
@@ -203,6 +209,23 @@ export default function PropertyDetailsModal({
 
           {/* Top action buttons */}
           <div className="absolute top-4 right-4 z-10 flex flex-wrap items-center gap-2">
+            {/* Save to Favorites Button */}
+            {onToggleFavorite && (
+              <button
+                id="modal-toggle-favorite-btn"
+                onClick={() => onToggleFavorite(property.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border shadow-md flex items-center gap-1.5 active:scale-95 ${
+                  isFavorited
+                    ? "bg-red-50 text-red-600 border-red-200 ring-2 ring-red-400/40"
+                    : "bg-white/95 hover:bg-red-50 hover:text-red-500 text-gray-700 border-gray-200"
+                }`}
+                title={isFavorited ? "Saved in Favorites (Click to remove)" : "Save to Favorites"}
+              >
+                <Heart className={`h-3.5 w-3.5 ${isFavorited ? "fill-red-500 text-red-500" : "text-gray-500"}`} />
+                <span>{isFavorited ? "Saved" : "Save"}</span>
+              </button>
+            )}
+
             {/* Primary Share Button (Native dialog or permalink clipboard copy) */}
             <button
               id="property-share-btn"
@@ -531,6 +554,19 @@ export default function PropertyDetailsModal({
                         <span className="break-all whitespace-pre-wrap select-all">{agent.email}</span>
                       </div>
                     </div>
+                    {onViewAgentProfile && (
+                      <button
+                        onClick={() => {
+                          onViewAgentProfile(agent.id);
+                          onClose();
+                        }}
+                        className="mt-2 text-[11px] font-bold text-brand-primary hover:text-brand-hover flex items-center gap-1 cursor-pointer transition-colors"
+                        title="View agent's dedicated profile page and listed properties"
+                      >
+                        <span>View Agent Profile & Listed Properties</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

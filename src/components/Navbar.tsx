@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { UserProfile } from "../types";
-import { Building2, Menu, X, ShieldCheck, UserCheck, LogOut, User } from "lucide-react";
+import { Building2, Menu, X, ShieldCheck, UserCheck, LogOut, User, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import BenoLogo from "./BenoLogo";
 
@@ -17,6 +17,7 @@ interface NavbarProps {
   currentUser: UserProfile | null;
   onOpenAuth: () => void;
   onLogout: () => void;
+  onOpenFavorites?: () => void;
 }
 
 export default function Navbar({
@@ -27,6 +28,7 @@ export default function Navbar({
   currentUser,
   onOpenAuth,
   onLogout,
+  onOpenFavorites,
 }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -41,7 +43,7 @@ export default function Navbar({
 
   // If logged in, add portal tab dynamically so they have easy desktop menu nav
   const activeMenuItems = currentUser 
-    ? [...menuItems, { id: "portal", label: "My Workspace" }]
+    ? [...menuItems, { id: "portal", label: "My Profile" }]
     : menuItems;
 
   const handleNavClick = (tabId: string) => {
@@ -85,9 +87,29 @@ export default function Navbar({
 
           {/* User Auth controls / Partner Portal */}
           <div className="hidden md:flex items-center gap-3" id="auth-actions-wrapper">
+            {/* Direct Saved Properties / Favorites Shortcut (Accessible to all) */}
+            <button
+              onClick={() => {
+                if (onOpenFavorites) {
+                  onOpenFavorites();
+                } else {
+                  handleNavClick("portal");
+                }
+              }}
+              className="relative p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors cursor-pointer"
+              title="View Saved Properties / Favorites"
+            >
+              <Heart className={`h-4 w-4 ${currentUser && (currentUser.favorites || []).length > 0 ? "fill-red-500 text-red-500" : ""}`} />
+              {currentUser && (currentUser.favorites || []).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full">
+                  {(currentUser.favorites || []).length}
+                </span>
+              )}
+            </button>
+
             {currentUser ? (
-              <div className="flex items-center gap-2.5">
-                {/* User avatar preview and quick portal shortcut */}
+              <div className="flex items-center gap-2">
+                {/* User avatar preview and quick profile shortcut */}
                 <button
                   onClick={() => handleNavClick("portal")}
                   className={`flex items-center gap-2 px-3 py-1.5 border rounded-full transition-all cursor-pointer hover:bg-gray-50 ${
@@ -130,13 +152,31 @@ export default function Navbar({
                 className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-brand-hover rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
               >
                 <UserCheck className="h-4 w-4 text-white" />
-                Sign In / Portal
+                Sign In / Register
               </button>
             )}
           </div>
 
           {/* Mobile menu action controls */}
           <div className="flex md:hidden items-center gap-2" id="mobile-menu-actions">
+            <button
+              onClick={() => {
+                if (onOpenFavorites) {
+                  onOpenFavorites();
+                } else {
+                  handleNavClick("portal");
+                }
+              }}
+              className="relative p-2 text-gray-500 hover:text-red-500 rounded-lg bg-gray-50"
+              title="Saved Properties"
+            >
+              <Heart className={`h-4 w-4 ${currentUser && (currentUser.favorites || []).length > 0 ? "fill-red-500 text-red-500" : ""}`} />
+              {currentUser && (currentUser.favorites || []).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white font-mono text-[9px] font-bold px-1 rounded-full">
+                  {(currentUser.favorites || []).length}
+                </span>
+              )}
+            </button>
             {currentUser && (
               <button
                 onClick={() => handleNavClick("portal")}

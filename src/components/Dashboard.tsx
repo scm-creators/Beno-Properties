@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   User, Heart, Bell, Plus, ShieldAlert, Sparkles, Inbox, 
   Trash2, Edit, Save, Check, CheckCircle, Upload, Image as ImageIcon,
   FolderOpen, UserPlus, FileText, ChevronRight, Filter, Search, Tag, Phone,
   Calendar, Wrench, AlertCircle, ChevronDown, ChevronUp, CalendarCheck, BarChart3,
-  UserCheck, ShieldCheck, Clock, XCircle, Flame, Mail
+  UserCheck, ShieldCheck, Clock, XCircle, Flame, Mail, Scale, ExternalLink
 } from "lucide-react";
 import { 
   UserProfile, Property, Lead, Agent, EmailAlertSubscription,
@@ -59,6 +59,11 @@ interface DashboardProps {
   onAddInvitation: (invitation: ClientInvitation) => void;
   onUpdateInvitation: (invitation: ClientInvitation) => void;
   onDeleteInvitation: (id: string) => void;
+  initialTab?: string;
+  comparedPropertyIds?: string[];
+  onToggleCompare?: (propertyId: string) => void;
+  onOpenCompare?: () => void;
+  onBrowseProperties?: () => void;
 }
 
 export default function Dashboard({
@@ -92,19 +97,25 @@ export default function Dashboard({
   onAddInvitation,
   onUpdateInvitation,
   onDeleteInvitation,
+  initialTab,
+  comparedPropertyIds = [],
+  onToggleCompare,
+  onOpenCompare,
+  onBrowseProperties,
 }: DashboardProps) {
   const pendingApprovalsCount = (users || []).filter(
     (u) => (u.role === "agent" || u.role === "landlord") && u.approvalStatus === "pending"
   ).length;
 
   // Navigation tabs based on user role
+  const favCount = (currentUser.favorites || []).length;
   const getTabs = () => {
     switch (currentUser.role) {
       case "client":
         return [
           { id: "profile", label: "My Profile", icon: User },
           { id: "client-appointments", label: "My Appointments", icon: CalendarCheck },
-          { id: "favorites", label: "Saved Favorites", icon: Heart },
+          { id: "favorites", label: "Saved Properties", icon: Heart, badge: favCount || undefined },
           { id: "alerts", label: "Search Alerts", icon: Bell },
           { id: "tools", label: "Tools", icon: Wrench },
         ];
@@ -116,6 +127,7 @@ export default function Dashboard({
         }
         return [
           { id: "agent-profile", label: "Agent Profile", icon: User },
+          { id: "favorites", label: "Saved Properties", icon: Heart, badge: favCount || undefined },
           { id: "demand-heatmap", label: "Demand Heatmap", icon: Flame },
           { id: "email-templates", label: "Email Templates", icon: Mail },
           { id: "appointments", label: "Appointments & Invites", icon: CalendarCheck },
@@ -133,12 +145,14 @@ export default function Dashboard({
         }
         return [
           { id: "landlord-profile", label: "Owner Profile", icon: User },
+          { id: "favorites", label: "Saved Properties", icon: Heart, badge: favCount || undefined },
           { id: "tenant-vetting", label: "Landlord Portal", icon: FileText },
         ];
       case "admin":
         return [
           { id: "admin-profile", label: "Admin Profile", icon: User },
           { id: "user-approvals", label: "Approvals", icon: ShieldCheck, badge: pendingApprovalsCount },
+          { id: "favorites", label: "Saved Properties", icon: Heart, badge: favCount || undefined },
           { id: "demand-heatmap", label: "Demand Heatmap", icon: Flame },
           { id: "email-templates", label: "Email Templates", icon: Mail },
           { id: "agents-manager", label: "Agent Roster", icon: UserCheck },
@@ -155,7 +169,14 @@ export default function Dashboard({
   };
 
   const tabs = getTabs();
-  const [activeTab, setActiveTab] = useState(tabs[0]?.id || "profile");
+  const [activeTab, setActiveTab] = useState(initialTab || tabs[0]?.id || "profile");
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [quickFollowUpLead, setQuickFollowUpLead] = useState<Lead | null>(null);
 
   // Integrated Client & Property Event Reminder System
@@ -877,60 +898,188 @@ export default function Dashboard({
             </div>
           )}
 
-          {/* SAVED FAVORITES WORKSPACE */}
+          {/* SAVED PROPERTIES & FAVORITES WORKSPACE */}
           {activeTab === "favorites" && (
             <div className="space-y-6" id="ws-favorites">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Saved Favorites</h3>
-                <p className="text-gray-500 text-xs mt-0.5">Real-time catalog matches you've liked for comparison.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-150 pb-4">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Saved Properties & Favorites</h3>
+                    <span className="bg-red-50 text-red-600 border border-red-200 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full">
+                      {currentUser.favorites.length} Saved
+                    </span>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    Personal collection of properties you've shortlisted for viewing, inquiry, and side-by-side comparison.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {onOpenCompare && comparedPropertyIds.length > 0 && (
+                    <button
+                      onClick={onOpenCompare}
+                      className="px-3.5 py-2 bg-brand-secondary hover:bg-brand-primary text-white text-xs font-bold uppercase rounded-xl flex items-center gap-2 cursor-pointer shadow-sm transition-all"
+                      title="Compare selected properties side-by-side"
+                    >
+                      <Scale className="h-4 w-4" />
+                      <span>Compare ({comparedPropertyIds.length})</span>
+                    </button>
+                  )}
+
+                  {currentUser.favorites.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (confirm("Are you sure you want to remove all properties from your saved favorites?")) {
+                          onUpdateProfile({ ...currentUser, favorites: [] });
+                        }
+                      }}
+                      className="px-3 py-2 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors border border-gray-200 hover:border-red-200"
+                      title="Clear all saved properties"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Clear All</span>
+                    </button>
+                  )}
+
+                  {onBrowseProperties && (
+                    <button
+                      onClick={onBrowseProperties}
+                      className="px-3.5 py-2 bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                    >
+                      <span>Explore Catalog</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {currentUser.favorites.length === 0 ? (
-                <div className="py-12 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                  <Heart className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-gray-700">No properties in your favorites yet.</p>
-                  <p className="text-gray-400 text-xs mt-1">Click the heart button on any listing on the home page to save it here.</p>
+                <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/50 p-8 space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-red-50 text-red-400 flex items-center justify-center">
+                    <Heart className="h-7 w-7" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1.5">
+                    <h4 className="text-base font-bold text-gray-800">No properties in your saved list yet</h4>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Click the heart icon on any property listing or in the details modal across the website to save properties directly to your profile.
+                    </p>
+                  </div>
+                  {onBrowseProperties && (
+                    <button
+                      onClick={onBrowseProperties}
+                      className="px-5 py-2.5 bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer shadow-sm transition-all"
+                    >
+                      Browse Available Listings
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {properties
                     .filter((p) => currentUser.favorites.includes(p.id))
-                    .map((prop) => (
-                      <div key={prop.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-shadow relative bg-white">
-                        <div className="aspect-video relative overflow-hidden bg-gray-100">
-                          <img src={prop.imageUrl} alt={prop.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => {
-                              const list = currentUser.favorites.filter((id) => id !== prop.id);
-                              onUpdateProfile({ ...currentUser, favorites: list });
-                            }}
-                            className="absolute top-3 right-3 p-2 bg-white/95 text-red-500 rounded-full hover:bg-white shadow-sm cursor-pointer"
-                            title="Remove from favorites"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <span className="text-[10px] font-mono text-brand-secondary bg-brand-secondary/10 px-2 py-0.5 rounded uppercase font-bold">
-                            {prop.status}
-                          </span>
-                          <h4 className="text-sm font-bold text-gray-900 truncate" title={prop.title}>{prop.title}</h4>
-                          <div className="text-xs text-gray-500">{prop.location}, {prop.city}</div>
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                            <span className="font-mono text-xs font-extrabold text-brand-primary">
-                              {formatPriceZAR(prop.price, prop.status)}
-                            </span>
+                    .map((prop) => {
+                      const isCompared = comparedPropertyIds.includes(prop.id);
+                      return (
+                        <div key={prop.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg transition-all relative bg-white flex flex-col group">
+                          <div className="aspect-[16/10] relative overflow-hidden bg-gray-100">
+                            <img
+                              src={prop.imageUrl}
+                              alt={prop.title}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+
+                            {/* Top Badges */}
+                            <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono text-white bg-brand-secondary/90 backdrop-blur-xs px-2.5 py-1 rounded-md uppercase font-extrabold shadow-sm">
+                                {prop.status}
+                              </span>
+                              <span className="text-[10px] font-mono text-white bg-brand-primary/90 backdrop-blur-xs px-2.5 py-1 rounded-md uppercase font-semibold shadow-sm">
+                                {prop.type}
+                              </span>
+                            </div>
+
+                            {/* Remove from Saved Properties Button */}
                             <button
-                              onClick={() => onSelectPropertyDetails && onSelectPropertyDetails(prop.id)}
-                              className="text-[10px] font-bold text-brand-primary hover:underline uppercase tracking-wider flex items-center cursor-pointer"
+                              onClick={() => {
+                                const list = currentUser.favorites.filter((id) => id !== prop.id);
+                                onUpdateProfile({ ...currentUser, favorites: list });
+                              }}
+                              className="absolute top-3 right-3 p-2 bg-white/95 text-red-500 rounded-full hover:bg-red-500 hover:text-white shadow-md cursor-pointer transition-colors"
+                              title="Remove from saved properties"
                             >
-                              Details
-                              <ChevronRight className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
+
+                            {/* Price overlay on image */}
+                            <div className="absolute bottom-3 left-3 right-3 flex items-baseline justify-between text-white">
+                              <span className="font-mono text-lg font-black tracking-tight drop-shadow-md">
+                                {formatPriceZAR(prop.price, prop.status)}
+                              </span>
+                              <span className="text-[11px] font-mono opacity-90 drop-shadow-md">Ref: {prop.id}</span>
+                            </div>
+                          </div>
+
+                          <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                            <div>
+                              <h4 className="text-sm font-bold text-gray-900 line-clamp-1" title={prop.title}>
+                                {prop.title}
+                              </h4>
+                              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <span>{prop.location}, {prop.city}</span>
+                              </div>
+                            </div>
+
+                            {/* Specs row */}
+                            <div className="grid grid-cols-4 gap-2 py-2 border-y border-gray-100 text-center text-xs text-gray-600 font-medium">
+                              <div>
+                                <span className="font-bold text-gray-900 block">{prop.bedrooms}</span>
+                                <span className="text-[10px] text-gray-400 uppercase">Beds</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-900 block">{prop.bathrooms}</span>
+                                <span className="text-[10px] text-gray-400 uppercase">Baths</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-900 block">{prop.parking || "—"}</span>
+                                <span className="text-[10px] text-gray-400 uppercase">Parking</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-900 block">{prop.size ? `${prop.size}m²` : "—"}</span>
+                                <span className="text-[10px] text-gray-400 uppercase">Size</span>
+                              </div>
+                            </div>
+
+                            {/* Bottom action buttons */}
+                            <div className="flex items-center justify-between pt-1 gap-2">
+                              {onToggleCompare && (
+                                <button
+                                  type="button"
+                                  onClick={() => onToggleCompare(prop.id)}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all border ${
+                                    isCompared
+                                      ? "bg-brand-secondary text-white border-brand-secondary"
+                                      : "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+                                  }`}
+                                  title={isCompared ? "Remove from comparison" : "Add to comparison"}
+                                >
+                                  <Scale className="h-3.5 w-3.5" />
+                                  <span>{isCompared ? "Comparing" : "Compare"}</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => onSelectPropertyDetails && onSelectPropertyDetails(prop.id)}
+                                className="ml-auto text-xs font-bold text-brand-primary hover:text-brand-hover hover:underline uppercase tracking-wider flex items-center gap-1 cursor-pointer py-1.5 px-3 bg-brand-primary/5 hover:bg-brand-primary/10 rounded-lg transition-colors"
+                              >
+                                <span>View Details</span>
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
